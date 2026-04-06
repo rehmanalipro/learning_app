@@ -1,0 +1,30 @@
+abstract class AppRoutes {
+  static const splash = '/splash';
+  static const choose = '/choose';
+  static const login = '/login';
+  static const register = '/register';
+  static const forgotPassword = '/forgot-password';
+  static const otp = '/otp';
+  static const student = '/student';
+  static const teacher = '/teacher';
+  static const teacherAttendance = '/teacher-attendance';
+  static const teacherHomework = '/teacher-homework';
+  static const studentHomework = '/student-homework';
+  static const studentHomeworkSubmit = '/student-homework-submit';
+  static const teacherSolution = '/teacher-solution';
+  static const studentSolution = '/student-solution';
+  static const principalSolution = '/principal-solution';
+  static const teacherExamRoutine = '/teacher-exam-routine';
+  static const studentExamRoutine = '/student-exam-routine';
+  static const principalExamRoutine = '/principal-exam-routine';
+  static const principalHomework = '/principal-homework';
+  static const principal = '/principal';
+  static const attendanceForm = '/attendance-form';
+  static const schoolInfo = '/school-info';
+  static const profile = '/profile';
+  static const studentResult = '/student-result';
+  static const teacherResult = '/teacher-result';
+  static const studentQuiz = '/student-quiz';
+  static const teacherQuiz = '/teacher-quiz';
+  static const principalQuiz = '/principal-quiz';
+}

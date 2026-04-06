@@ -1,4 +1,4 @@
-package com.example.learning_app
+package com.synticai.learning_app
 
 import io.flutter.embedding.android.FlutterActivity
 

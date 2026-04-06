@@ -3,16 +3,24 @@ import '../models/teacher_model.dart';
 import '../services/teacher_service.dart';
 
 class TeacherProvider extends GetxController {
-  final TeacherService _teacherService = TeacherService();
-  RxList<TeacherModel> teachers = RxList<TeacherModel>();
-  RxBool isLoading = false.obs;
+  late final TeacherService _teacherService;
+  RxList<TeacherModel> get teachers => _teacherService.teachers;
+  RxBool get isLoading => _teacherService.isLoading;
 
-  Future<void> loadTeachers() async {
-    try {
-      isLoading.value = true;
-      teachers.value = await _teacherService.getTeachers();
-    } finally {
-      isLoading.value = false;
-    }
+  @override
+  void onInit() {
+    super.onInit();
+    _teacherService = Get.find<TeacherService>();
+    loadTeachers();
   }
+
+  Future<void> loadTeachers() => _teacherService.loadTeachers();
+
+  Future<void> addTeacher(TeacherModel teacher) =>
+      _teacherService.addTeacher(teacher);
+
+  Future<void> updateTeacher(TeacherModel teacher) =>
+      _teacherService.updateTeacher(teacher);
+
+  Future<void> removeTeacher(String id) => _teacherService.removeTeacher(id);
 }
