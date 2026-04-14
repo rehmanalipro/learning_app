@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../core/services/class_binding_service.dart';
 import '../../../core/theme/app_theme_helper.dart';
 import '../../../shared/widgets/app_refresh_scope.dart';
 import '../../../shared/widgets/app_screen_header.dart';
 import '../../../shared/widgets/responsive_content.dart';
+import '../../auth/providers/firebase_auth_provider.dart';
 import '../../profile/providers/profile_provider.dart';
 import '../models/quiz_models.dart';
 import '../providers/quiz_provider.dart';
@@ -24,29 +26,34 @@ class TeacherQuizScreen extends StatefulWidget {
 class _TeacherQuizScreenState extends State<TeacherQuizScreen> {
   final QuizProvider _quizProvider = Get.find<QuizProvider>();
   final ProfileProvider _profileProvider = Get.find<ProfileProvider>();
+  final ClassBindingService _classBinding = Get.find<ClassBindingService>();
+  final FirebaseAuthProvider _authProvider = Get.find<FirebaseAuthProvider>();
 
-  final List<String> _classes = const ['1', '2', '3', '4', '5'];
-  final List<String> _sections = const ['A', 'B', 'C'];
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
-  final TextEditingController _subjectController = TextEditingController(
-    text: 'English',
-  );
-  final TextEditingController _teacherNameController = TextEditingController();
+  final TextEditingController _subjectController = TextEditingController();
 
-  String _selectedClass = '3';
-  String _selectedSection = 'A';
+  late String _selectedClass;
+  late String _selectedSection;
   final List<_QuestionDraft> _questionDrafts = [];
+  String _teacherName = 'Teacher';
+  bool _isSavingQuiz = false;
 
   bool get _isPrincipalView => widget.roleLabel.toLowerCase() == 'principal';
 
   @override
   void initState() {
     super.initState();
-    final profile = _profileProvider.profileFor(widget.roleLabel);
-    _teacherNameController.text = profile.name.trim().isEmpty
-        ? '${widget.roleLabel} User'
-        : profile.name;
+    _selectedClass = _classBinding.className.value.isNotEmpty
+        ? _classBinding.className.value
+        : '3';
+    _selectedSection = _classBinding.section.value.isNotEmpty
+        ? _classBinding.section.value
+        : 'A';
+    _subjectController.text = _classBinding.subject.value.isNotEmpty
+        ? _classBinding.subject.value
+        : 'English';
+    _loadTeacherIdentity();
   }
 
   @override
@@ -54,20 +61,48 @@ class _TeacherQuizScreenState extends State<TeacherQuizScreen> {
     _titleController.dispose();
     _descriptionController.dispose();
     _subjectController.dispose();
-    _teacherNameController.dispose();
     for (final item in _questionDrafts) {
       item.dispose();
     }
     super.dispose();
   }
 
+  Future<void> _loadTeacherIdentity() async {
+    final userData = await _authProvider.loadCurrentUserData();
+    if (!mounted) return;
+
+    final profile = _profileProvider.profileFor(widget.roleLabel);
+    final resolvedName =
+        (userData?['name'] as String?)?.trim().isNotEmpty == true
+        ? (userData!['name'] as String).trim()
+        : profile.name.trim().isNotEmpty
+        ? profile.name.trim()
+        : widget.roleLabel;
+
+    setState(() {
+      _teacherName = resolvedName;
+    });
+  }
+
   Future<void> _refreshScreen() => _quizProvider.loadAll();
+
+  void _resetQuizForm() {
+    _titleController.clear();
+    _descriptionController.clear();
+    _subjectController.text = _classBinding.subject.value.isNotEmpty
+        ? _classBinding.subject.value
+        : 'English';
+    for (final item in _questionDrafts) {
+      item.dispose();
+    }
+    _questionDrafts
+      ..clear()
+      ..add(_QuestionDraft());
+  }
 
   void _openCreateQuizSheet() {
     final palette = context.appPalette;
-    if (_questionDrafts.isEmpty) {
-      _questionDrafts.add(_QuestionDraft());
-    }
+    _resetQuizForm();
 
     Get.bottomSheet(
       StatefulBuilder(
@@ -108,38 +143,24 @@ class _TeacherQuizScreenState extends State<TeacherQuizScreen> {
                     const SizedBox(height: 12),
                     _TextField(controller: _subjectController, label: 'Subject'),
                     const SizedBox(height: 12),
-                    _TextField(
-                      controller: _teacherNameController,
+                    _ReadOnlyField(
+                      value: _teacherName,
                       label: 'Teacher Name',
                     ),
                     const SizedBox(height: 12),
                     Row(
                       children: [
                         Expanded(
-                          child: _DropdownField(
+                          child: _ReadOnlyField(
                             label: 'Class',
                             value: _selectedClass,
-                            items: _classes,
-                            onChanged: (value) {
-                              if (value == null) return;
-                              setModalState(() {
-                                _selectedClass = value;
-                              });
-                            },
                           ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: _DropdownField(
+                          child: _ReadOnlyField(
                             label: 'Section',
                             value: _selectedSection,
-                            items: _sections,
-                            onChanged: (value) {
-                              if (value == null) return;
-                              setModalState(() {
-                                _selectedSection = value;
-                              });
-                            },
                           ),
                         ),
                       ],
@@ -192,13 +213,32 @@ class _TeacherQuizScreenState extends State<TeacherQuizScreen> {
                     const SizedBox(height: 14),
                     SizedBox(
                       width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _saveQuiz,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: palette.primary,
-                          foregroundColor: palette.inverseText,
-                        ),
-                        child: const Text('Post Quiz'),
+                      child: StatefulBuilder(
+                        builder: (ctx, setSaveState) {
+                          return ElevatedButton(
+                            onPressed: _isSavingQuiz
+                                ? null
+                                : () async {
+                                    setSaveState(() => _isSavingQuiz = true);
+                                    await _saveQuiz(context);
+                                    if (mounted) setSaveState(() => _isSavingQuiz = false);
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: palette.primary,
+                              foregroundColor: palette.inverseText,
+                            ),
+                            child: _isSavingQuiz
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Text('Post Quiz'),
+                          );
+                        },
                       ),
                     ),
                   ],
@@ -212,7 +252,8 @@ class _TeacherQuizScreenState extends State<TeacherQuizScreen> {
     );
   }
 
-  Future<void> _saveQuiz() async {
+  Future<void> _saveQuiz(BuildContext sheetContext) async {
+    final navigator = Navigator.of(sheetContext);
     final validQuestions = <QuizQuestionModel>[];
     for (final draft in _questionDrafts) {
       final questionText = draft.questionController.text.trim();
@@ -222,7 +263,7 @@ class _TeacherQuizScreenState extends State<TeacherQuizScreen> {
       if (questionText.isEmpty || options.any((item) => item.isEmpty)) {
         Get.snackbar(
           'Incomplete question',
-          'Har question aur us ke 4 options fill karein.',
+          'Please fill in the question and all 4 options.',
           snackPosition: SnackPosition.BOTTOM,
         );
         return;
@@ -238,39 +279,42 @@ class _TeacherQuizScreenState extends State<TeacherQuizScreen> {
 
     if (_titleController.text.trim().isEmpty ||
         _subjectController.text.trim().isEmpty ||
-        _teacherNameController.text.trim().isEmpty ||
+        _teacherName.trim().isEmpty ||
         validQuestions.isEmpty) {
       Get.snackbar(
         'Missing details',
-        'Quiz title, subject, teacher aur questions required hain.',
+        'Quiz title, subject, teacher name, and at least one question are required.',
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
     }
 
-    await _quizProvider.addQuiz(
-      title: _titleController.text.trim(),
-      description: _descriptionController.text.trim(),
-      subject: _subjectController.text.trim(),
-      className: _selectedClass,
-      section: _selectedSection,
-      teacherName: _teacherNameController.text.trim(),
-      questions: validQuestions,
-    );
+    setState(() {
+      _isSavingQuiz = true;
+    });
 
-    _titleController.clear();
-    _descriptionController.clear();
-    _subjectController.text = 'English';
-    for (final item in _questionDrafts) {
-      item.dispose();
+    try {
+      await _quizProvider.addQuiz(
+        title: _titleController.text.trim(),
+        description: _descriptionController.text.trim(),
+        subject: _subjectController.text.trim(),
+        className: _selectedClass,
+        section: _selectedSection,
+        teacherName: _teacherName.trim(),
+        questions: validQuestions,
+      );
+
+      _resetQuizForm();
+      if (navigator.canPop()) {
+        navigator.pop();
+      }
+      if (mounted) setState(() {});
+    } catch (e) {
+      Get.snackbar('Error', 'Failed to post quiz. Please try again.',
+          snackPosition: SnackPosition.BOTTOM);
+    } finally {
+      _isSavingQuiz = false;
     }
-    _questionDrafts
-      ..clear()
-      ..add(_QuestionDraft());
-    if (Get.isBottomSheetOpen ?? false) {
-      Get.back();
-    }
-    setState(() {});
   }
 
   @override
@@ -313,7 +357,7 @@ class _TeacherQuizScreenState extends State<TeacherQuizScreen> {
                   ),
                   child: Text(
                     _isPrincipalView
-                        ? 'Principal yahan har quiz ki student performance dekh sakta hai.'
+                        ? 'The Principal can view student performance for all quizzes here.'
                         : 'Teacher quiz post karega, 4 options aur correct answer set karega, aur yahin par student results bhi dekh sakega.',
                     style: TextStyle(
                       color: palette.inverseText.withValues(alpha: 0.92),
@@ -326,8 +370,8 @@ class _TeacherQuizScreenState extends State<TeacherQuizScreen> {
                   _EmptyStateCard(
                     title: 'No quiz posted yet',
                     message: _isPrincipalView
-                        ? 'Teacher jab quiz create karega to yahan results ke sath show hoga.'
-                        : 'Create Quiz button se pehla quiz post karein.',
+                        ? 'Quizzes created by the teacher will appear here with student results.'
+                        : 'Use the Create Quiz button to post your first quiz.',
                   )
                 else
                   ..._quizProvider.quizzes.map((quiz) {
@@ -471,14 +515,16 @@ class _QuestionDraftCard extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 10),
               child: Row(
                 children: [
-                  Radio<int>(
-                    value: optionIndex,
+                  RadioGroup<int>(
                     groupValue: draft.correctOptionIndex,
                     onChanged: (value) {
                       if (value == null) return;
                       draft.correctOptionIndex = value;
                       onChanged();
                     },
+                    child: Radio<int>(
+                      value: optionIndex,
+                    ),
                   ),
                   Expanded(
                     child: _TextField(
@@ -520,31 +566,37 @@ class _TextField extends StatelessWidget {
   }
 }
 
-class _DropdownField extends StatelessWidget {
+class _ReadOnlyField extends StatelessWidget {
   final String label;
   final String value;
-  final List<String> items;
-  final ValueChanged<String?> onChanged;
 
-  const _DropdownField({
-    required this.label,
-    required this.value,
-    required this.items,
-    required this.onChanged,
-  });
+  const _ReadOnlyField({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
-    return DropdownButtonFormField<String>(
-      initialValue: value,
-      decoration: InputDecoration(
-        labelText: label,
-        border: const OutlineInputBorder(),
+    final palette = context.appPalette;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+      decoration: BoxDecoration(
+        color: palette.surfaceAlt,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: palette.border),
       ),
-      items: items
-          .map((item) => DropdownMenuItem(value: item, child: Text(item)))
-          .toList(growable: false),
-      onChanged: onChanged,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(fontSize: 12, color: palette.subtext),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: TextStyle(color: palette.text, fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -5,9 +5,12 @@ abstract class AppRoutes {
   static const register = '/register';
   static const forgotPassword = '/forgot-password';
   static const otp = '/otp';
+  static const changePassword = '/change-password';
+  static const chatbot = '/chatbot';
   static const student = '/student';
   static const teacher = '/teacher';
   static const teacherAttendance = '/teacher-attendance';
+  static const principalAttendance = '/principal-attendance';
   static const teacherHomework = '/teacher-homework';
   static const studentHomework = '/student-homework';
   static const studentHomeworkSubmit = '/student-homework-submit';
@@ -19,6 +22,8 @@ abstract class AppRoutes {
   static const principalExamRoutine = '/principal-exam-routine';
   static const principalHomework = '/principal-homework';
   static const principal = '/principal';
+  static const studentAdmissions = '/student-admissions';
+  static const teacherAccounts = '/teacher-accounts';
   static const attendanceForm = '/attendance-form';
   static const schoolInfo = '/school-info';
   static const profile = '/profile';

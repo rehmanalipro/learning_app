@@ -17,25 +17,15 @@ class TeacherService extends GetxService {
         path: _collection,
         fromMap: TeacherModel.fromMap,
       );
-
-      if (fetched.isEmpty && teachers.isEmpty) {
-        final seed = <TeacherModel>[
-          TeacherModel(id: 't1', name: 'Teacher A', subject: 'Science'),
-          TeacherModel(id: 't2', name: 'Teacher B', subject: 'English'),
-        ];
-        for (final teacher in seed) {
-          await _store.setCollectionDocument(
-            collectionPath: _collection,
-            id: teacher.id,
-            data: teacher.toMap(),
-          );
-        }
-        teachers.value = seed;
-      } else {
-        teachers.value = fetched;
-      }
-
-      return teachers.toList(growable: false);
+      fetched.sort((a, b) {
+        final classCompare = a.className.compareTo(b.className);
+        if (classCompare != 0) return classCompare;
+        final sectionCompare = a.section.compareTo(b.section);
+        if (sectionCompare != 0) return sectionCompare;
+        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      });
+      teachers.assignAll(fetched);
+      return teachers.toList();
     } finally {
       isLoading.value = false;
     }

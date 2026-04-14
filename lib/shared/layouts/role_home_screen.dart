@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../core/services/class_binding_service.dart';
+import '../../core/services/class_roster_service.dart';
 import '../../core/theme/app_theme_helper.dart';
+import '../../features/attendance/services/attendance_service.dart';
 import '../../features/auth/providers/firebase_auth_provider.dart';
 import '../../features/school/controllers/school_controller.dart';
 import '../../features/school/providers/school_data_provider.dart';
 import '../../features/school/views/school_info_screen.dart';
+import '../../features/theme/providers/app_theme_provider.dart';
 import '../../routes/app_routes.dart';
+import '../widgets/animated_list_item.dart';
 import '../widgets/app_screen_header.dart';
 import '../widgets/app_refresh_scope.dart';
 import '../widgets/responsive_content.dart';
@@ -42,10 +47,17 @@ class _RoleHomeScreenState extends State<RoleHomeScreen> {
   final SchoolDataProvider _schoolDataProvider = Get.find<SchoolDataProvider>();
   final SchoolController _schoolController = Get.find<SchoolController>();
   final FirebaseAuthProvider _authProvider = Get.find<FirebaseAuthProvider>();
+  final AppThemeProvider _appThemeProvider = Get.find<AppThemeProvider>();
+  final ClassBindingService _classBindingService =
+      Get.find<ClassBindingService>();
+  final ClassRosterService _classRosterService = Get.find<ClassRosterService>();
+  final AttendanceService _attendanceService = Get.find<AttendanceService>();
 
   int _lastPopupUnreadCount = -1;
 
   bool get _isStudent => widget.roleLabel.toLowerCase() == 'student';
+  bool get _isTeacher => widget.roleLabel.toLowerCase() == 'teacher';
+  bool get _isPrincipal => widget.roleLabel.toLowerCase() == 'principal';
 
   @override
   void initState() {
@@ -53,6 +65,14 @@ class _RoleHomeScreenState extends State<RoleHomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _showStudentNotificationPopupIfNeeded();
     });
+    if (_isTeacher) {
+      final cn = _classBindingService.className.value;
+      final sec = _classBindingService.section.value;
+      if (cn.isNotEmpty && sec.isNotEmpty) {
+        _classRosterService.loadRoster(className: cn, section: sec);
+      }
+      _attendanceService.loadEntries();
+    }
   }
 
   @override
@@ -74,6 +94,7 @@ class _RoleHomeScreenState extends State<RoleHomeScreen> {
         actions: [
           IconButton(
             onPressed: () async {
+              Get.find<ClassBindingService>().clear();
               await _authProvider.signOut();
               Get.offAllNamed(AppRoutes.choose);
             },
@@ -90,13 +111,26 @@ class _RoleHomeScreenState extends State<RoleHomeScreen> {
         });
 
         final schoolData = _schoolDataProvider.schoolData.value;
-        final unreadCount =
-            _schoolController.unreadNoticeCountForRole(widget.roleLabel);
+        final unreadCount = _appThemeProvider.notificationsEnabled.value
+            ? _schoolController.unreadNoticeCountForRole(widget.roleLabel)
+            : 0;
         final latestPost = _schoolController.noticePosts.isEmpty
             ? null
             : _schoolController.noticePosts.first;
 
         final items = <_HomeItem>[
+          if (_isPrincipal)
+            _HomeItem(
+              label: 'Admissions',
+              icon: Icons.how_to_reg_outlined,
+              onTap: () => Get.toNamed(AppRoutes.studentAdmissions),
+            ),
+          if (_isPrincipal)
+            _HomeItem(
+              label: 'Teachers',
+              icon: Icons.badge_outlined,
+              onTap: () => Get.toNamed(AppRoutes.teacherAccounts),
+            ),
           _HomeItem(
             label: 'Attendance',
             icon: Icons.fact_check_outlined,
@@ -248,11 +282,21 @@ class _RoleHomeScreenState extends State<RoleHomeScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
+                  if (_isPrincipal) _buildPrincipalAdmissionsBanner(palette),
+                  if (_isTeacher) _buildTeacherClassBanner(palette),
                   Wrap(
                     spacing: 10,
                     runSpacing: 16,
                     children: items
-                        .map((item) => _HomeTile(item: item))
+                        .asMap()
+                        .entries
+                        .map(
+                          (e) => AnimatedListItem(
+                            index: e.key,
+                            baseDelay: const Duration(milliseconds: 55),
+                            child: _HomeTile(item: e.value),
+                          ),
+                        )
                         .toList(growable: false),
                   ),
                 ],
@@ -264,11 +308,140 @@ class _RoleHomeScreenState extends State<RoleHomeScreen> {
     );
   }
 
+  Widget _buildTeacherClassBanner(dynamic palette) {
+    return Obx(() {
+      final cn = _classBindingService.className.value;
+      final sec = _classBindingService.section.value;
+      final sub = _classBindingService.subject.value;
+      final studentCount = _classRosterService.roster.length;
+
+      final today = DateTime.now();
+      final todayStr =
+          '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+      final todayEntries = _attendanceService.attendanceEntries.where((e) {
+        // match by date field or submittedAt date
+        final entryDate = e.submittedAt;
+        final entryDateStr =
+            '${entryDate.year}-${entryDate.month.toString().padLeft(2, '0')}-${entryDate.day.toString().padLeft(2, '0')}';
+        return entryDateStr == todayStr;
+      }).toList();
+      final hasAttendanceToday = todayEntries.isNotEmpty;
+
+      return Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: palette.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: palette.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Class ${cn.isNotEmpty ? cn : '—'} | Section ${sec.isNotEmpty ? sec : '—'} | Subject ${sub.isNotEmpty ? sub : '—'}',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: palette.text,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Total Students: $studentCount',
+              style: TextStyle(fontSize: 13, color: palette.subtext),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              hasAttendanceToday
+                  ? 'Attendance marked for today.'
+                  : 'Attendance not marked yet for today.',
+              style: TextStyle(
+                fontSize: 13,
+                color: hasAttendanceToday
+                    ? const Color(0xFF129C63)
+                    : const Color(0xFFD64545),
+              ),
+            ),
+          ],
+        ),
+      );
+    });
+  }
+
+  Widget _buildPrincipalAdmissionsBanner(AppThemePalette palette) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: palette.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: palette.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: palette.softCard,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.how_to_reg_outlined,
+                  color: palette.primary,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Student Admissions',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: palette.text,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Add and manage principal-controlled student identity records before signup and results.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        height: 1.4,
+                        color: palette.subtext,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () => Get.toNamed(AppRoutes.studentAdmissions),
+              icon: const Icon(Icons.arrow_forward_rounded),
+              label: const Text('Open Admission Form'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showStudentNotificationPopupIfNeeded() {
     if (!_isStudent || !mounted) return;
 
-    final notificationsEnabled =
-        _schoolDataProvider.schoolData.value.notificationsEnabled;
+    final notificationsEnabled = _appThemeProvider.notificationsEnabled.value;
     final unreadPosts = _schoolController.unreadPostsForRole(widget.roleLabel);
     final unreadCount = notificationsEnabled ? unreadPosts.length : 0;
 
@@ -337,10 +510,7 @@ class _RoleHomeScreenState extends State<RoleHomeScreen> {
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: Get.back,
-            child: const Text('Later'),
-          ),
+          TextButton(onPressed: Get.back, child: const Text('Later')),
           ElevatedButton(
             onPressed: () {
               Get.back();
@@ -360,10 +530,7 @@ class _RoleHomeScreenState extends State<RoleHomeScreen> {
     );
   }
 
-  Widget _statusPill({
-    required String text,
-    required Color color,
-  }) {
+  Widget _statusPill({required String text, required Color color}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
@@ -392,7 +559,11 @@ class _HomeTile extends StatelessWidget {
     final palette = context.appPalette;
     final width = MediaQuery.of(context).size.width;
     final contentWidth = width > 1240 ? 1180 : width - 32;
-    final columns = contentWidth >= 900 ? 4 : contentWidth >= 640 ? 3 : 2;
+    final columns = contentWidth >= 900
+        ? 4
+        : contentWidth >= 640
+        ? 3
+        : 2;
     final tileWidth = (contentWidth - ((columns - 1) * 10)) / columns;
 
     return SizedBox(

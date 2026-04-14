@@ -9,76 +9,9 @@ class ResultService extends GetxService {
   final RxList<ResultModel> results = <ResultModel>[].obs;
   final RxBool isLoading = false.obs;
 
-  static List<ResultModel> _buildDemoResults() {
-    const subjectMap = <String, List<Map<String, Object>>>{
-      '1': [
-        {'code': 'ENG-101', 'subject': 'English', 'ch': 1.0, 'score': 84.0},
-        {'code': 'MTH-101', 'subject': 'Mathematics', 'ch': 1.0, 'score': 91.0},
-      ],
-      '2': [
-        {'code': 'ENG-201', 'subject': 'English Grammar', 'ch': 1.0, 'score': 80.0},
-        {'code': 'SCI-201', 'subject': 'General Science', 'ch': 1.0, 'score': 86.0},
-      ],
-      '3': [
-        {'code': 'URD-301', 'subject': 'Urdu', 'ch': 1.0, 'score': 78.0},
-        {'code': 'MTH-301', 'subject': 'Mathematics', 'ch': 1.0, 'score': 88.0},
-      ],
-      '4': [
-        {'code': 'SCI-401', 'subject': 'Science', 'ch': 1.0, 'score': 83.0},
-        {'code': 'SST-401', 'subject': 'Social Studies', 'ch': 1.0, 'score': 76.0},
-      ],
-      '5': [
-        {'code': 'ENG-501', 'subject': 'Advanced English', 'ch': 1.0, 'score': 82.0},
-        {'code': 'CMP-501', 'subject': 'Computer Basics', 'ch': 1.0, 'score': 89.0},
-      ],
-    };
-
-    final items = <ResultModel>[];
-    subjectMap.forEach((className, entries) {
-      for (var i = 0; i < entries.length; i++) {
-        final entry = entries[i];
-        items.add(
-          ResultModel(
-            id: 'r-$className-$i',
-            studentId: 's-001',
-            studentName: 'Student User',
-            className: className,
-            section: 'A',
-            courseCode: entry['code']! as String,
-            subject: entry['subject']! as String,
-            creditHours: entry['ch']! as double,
-            score: entry['score']! as double,
-            maxScore: 100,
-            term: 'Annual',
-            examType: 'Final',
-            teacherId: 't-00$className',
-            teacherName: 'Teacher $className',
-          ),
-        );
-      }
-    });
-    return items;
-  }
-
-  Future<void> _seedIfEmpty() async {
-    final existing = await _store.getCollection<ResultModel>(
-      path: _collection,
-      fromMap: ResultModel.fromMap,
-    );
-    if (existing.isNotEmpty) return;
-    for (final item in _buildDemoResults()) {
-      await _store.setCollectionDocument(
-        collectionPath: _collection,
-        id: item.id,
-        data: item.toMap(),
-      );
-    }
-  }
-
   Future<List<ResultModel>> getAll() async {
     isLoading.value = true;
     try {
-      await _seedIfEmpty();
       final fetched = await _store.getCollection<ResultModel>(
         path: _collection,
         fromMap: ResultModel.fromMap,
@@ -92,12 +25,6 @@ class ResultService extends GetxService {
 
   Future<List<ResultModel>> getByStudent(String studentId) async {
     return (await getAll()).where((e) => e.studentId == studentId).toList();
-  }
-
-  Future<List<ResultModel>> getBySubject({required String subject}) async {
-    return (await getAll())
-        .where((e) => e.subject.toLowerCase() == subject.toLowerCase())
-        .toList();
   }
 
   Future<List<ResultModel>> getByClass({
@@ -141,16 +68,9 @@ class ResultService extends GetxService {
     required double maxScore,
   }) async {
     final all = await getAll();
-    ResultModel? existing;
-    for (final item in all) {
-      if (item.id == resultId) {
-        existing = item;
-        break;
-      }
-    }
-    if (existing == null) {
-      throw Exception('Result not found');
-    }
+    final existing = all.firstWhereOrNull((item) => item.id == resultId);
+    if (existing == null) throw Exception('Result not found');
+
     final updated = existing.copyWith(score: score, maxScore: maxScore);
     await _store.setCollectionDocument(
       collectionPath: _collection,
@@ -159,9 +79,7 @@ class ResultService extends GetxService {
       merge: true,
     );
     final index = results.indexWhere((item) => item.id == resultId);
-    if (index != -1) {
-      results[index] = updated;
-    }
+    if (index != -1) results[index] = updated;
   }
 
   Future<void> upsertResult(ResultModel result) async {
@@ -177,5 +95,92 @@ class ResultService extends GetxService {
     } else {
       results[index] = result;
     }
+  }
+
+  Future<void> deleteResult(String resultId) async {
+    await _store.deleteCollectionDocument(
+      collectionPath: _collection,
+      id: resultId,
+    );
+    results.removeWhere((item) => item.id == resultId);
+  }
+
+  String buildResultId({
+    required String studentKey,
+    required String subject,
+    required String term,
+    required String examType,
+  }) {
+    final sanitizedTerm = term.replaceAll(' ', '_');
+    final sanitizedExamType = examType.replaceAll(' ', '_');
+    final sanitizedSubject = subject.replaceAll(' ', '_');
+    return 'result_${studentKey}_${sanitizedSubject}_${sanitizedTerm}_$sanitizedExamType';
+  }
+
+  /// Upserts one result document per student in [roster].
+  ///
+  /// Document ID pattern:
+  /// `result_<studentProfileId>_<subject>_<term>_<examType>`
+  /// (spaces in subject/term/examType are replaced with underscores).
+  Future<void> bulkUpsertResults({
+    required List<Map<String, dynamic>> roster,
+    required String className,
+    required String section,
+    required String subject,
+    required String term,
+    required String examType,
+    required String teacherId,
+    required String teacherName,
+    required Map<String, ({double score, double maxScore})> scores,
+  }) async {
+    for (final student in roster) {
+      final studentKey =
+          student['studentProfileId'] as String? ??
+          student['uid'] as String? ??
+          '';
+      if (studentKey.isEmpty) continue;
+
+      final entry = scores[studentKey];
+      final score = entry?.score ?? 0.0;
+      final maxScore = entry?.maxScore ?? 0.0;
+
+      final docId = buildResultId(
+        studentKey: studentKey,
+        subject: subject,
+        term: term,
+        examType: examType,
+      );
+
+      final result = ResultModel(
+        id: docId,
+        studentId: studentKey,
+        studentUid: student['linkedUserUid'] as String? ?? '',
+        studentName: student['name'] as String? ?? '',
+        studentEmail: student['email'] as String? ?? '',
+        admissionNo: student['admissionNo'] as String? ?? '',
+        rollNumber: student['rollNumber'] as String? ?? '',
+        className: className,
+        section: section,
+        courseCode: '',
+        subject: subject,
+        creditHours: 1,
+        score: score,
+        maxScore: maxScore,
+        term: term,
+        examType: examType,
+        teacherId: teacherId,
+        teacherName: teacherName,
+        remarks: '',
+      );
+
+      await upsertResult(result);
+    }
+  }
+
+  /// Returns results where [studentId] matches the master student profile id.
+  Future<List<ResultModel>> getByStudentId(String studentProfileId) async {
+    return (await getAll())
+        .where((e) => e.studentId == studentProfileId)
+        .toList();
   }
 }

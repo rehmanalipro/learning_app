@@ -12,10 +12,10 @@ class PrincipalScreen extends StatelessWidget {
     return RoleHomeScreen(
       title: 'Principal Home',
       roleLabel: 'Principal',
-      onAttendanceTap: () => Get.toNamed(AppRoutes.teacherAttendance),
+      onAttendanceTap: () => Get.toNamed(AppRoutes.principalAttendance),
       onExamRoutineTap: () => Get.toNamed(AppRoutes.principalExamRoutine),
       onHomeworkTap: () => Get.toNamed(AppRoutes.principalHomework),
-      onResultTap: () => Get.toNamed(AppRoutes.teacherResult),
+      onResultTap: () => Get.toNamed(AppRoutes.teacherResult, arguments: 'Principal'),
       onSolutionTap: () => Get.toNamed(AppRoutes.principalSolution),
       onQuizTap: () => Get.toNamed(AppRoutes.principalQuiz),
     );

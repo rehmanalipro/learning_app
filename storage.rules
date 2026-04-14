@@ -2,28 +2,96 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
+
+    // ─── Helper Functions ───────────────────────────────────────────────────
+
     function signedIn() {
       return request.auth != null;
     }
 
-    match /profiles/{allPaths=**} {
-      allow read: if signedIn();
-      allow write: if signedIn();
+    // Max file size check (bytes)
+    function maxSize(mb) {
+      return request.resource.size <= mb * 1024 * 1024;
     }
+
+    // Allowed image types
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+
+    // Allowed document types (PDF)
+    function isPdf() {
+      return request.resource.contentType == 'application/pdf';
+    }
+
+    function isImageOrPdf() {
+      return isImage() || isPdf();
+    }
+
+    // ─── profiles/ ──────────────────────────────────────────────────────────
+    // Har signed-in user apni profile image upload/read kar sakta hai
+    // Path: profiles/{uid}/filename
+
+    match /profiles/{uid}/{fileName} {
+      allow read: if signedIn();
+      allow write: if signedIn()
+                   && request.auth.uid == uid
+                   && isImage()
+                   && maxSize(5);   // max 5 MB
+    }
+
+    // ─── school/ ────────────────────────────────────────────────────────────
+    // School images/docs - sirf authenticated users read kar sakte hain
+    // Write ke liye Firebase Admin ya manual upload (rules se block)
+    // Agar Principal upload karna chahta hai to uska uid check hoga
 
     match /school/{allPaths=**} {
       allow read: if signedIn();
-      allow write: if signedIn();
+      allow write: if signedIn()
+                   && isImageOrPdf()
+                   && maxSize(10);  // max 10 MB
     }
 
-    match /homework/{allPaths=**} {
+    // ─── homework/assignments/ ──────────────────────────────────────────────
+    // Teacher homework PDF upload karta hai
+    // Students aur teachers read kar sakte hain
+
+    match /homework/assignments/{allPaths=**} {
       allow read: if signedIn();
-      allow write: if signedIn();
+      allow write: if signedIn()
+                   && isPdf()
+                   && maxSize(20);  // max 20 MB
     }
+
+    // ─── homework/solutions/ ────────────────────────────────────────────────
+    // Teacher solution PDF upload karta hai
+
+    match /homework/solutions/{allPaths=**} {
+      allow read: if signedIn();
+      allow write: if signedIn()
+                   && isPdf()
+                   && maxSize(20);  // max 20 MB
+    }
+
+    // ─── homework/submissions/ ──────────────────────────────────────────────
+    // Student apna submission PDF upload karta hai
+
+    match /homework/submissions/{uid}/{allPaths=**} {
+      allow read: if signedIn();
+      allow write: if signedIn()
+                   && request.auth.uid == uid
+                   && isPdf()
+                   && maxSize(20);  // max 20 MB
+    }
+
+    // ─── exams/ ─────────────────────────────────────────────────────────────
+    // Exam date sheets - Teacher/Principal upload karte hain
 
     match /exams/{allPaths=**} {
       allow read: if signedIn();
-      allow write: if signedIn();
+      allow write: if signedIn()
+                   && isImageOrPdf()
+                   && maxSize(20);  // max 20 MB
     }
   }
 }

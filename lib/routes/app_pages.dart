@@ -1,8 +1,11 @@
 import 'package:get/get.dart';
 
 import '../features/attendance/views/attendance_form_screen.dart';
+import '../features/admission/views/principal_student_admissions_screen.dart';
 import '../features/attendance/views/teacher_attendance_screen.dart';
+import '../features/auth/views/change_password_screen.dart';
 import '../features/auth/views/choose_option_screen.dart';
+import '../features/chatbot/views/chatbot_screen.dart';
 import '../features/auth/views/forgot_password_screen.dart';
 import '../features/auth/views/login_screen.dart';
 import '../features/auth/views/otp_screen.dart';
@@ -24,6 +27,8 @@ import '../features/school/views/principal_screen.dart';
 import '../features/school/views/school_info_screen.dart';
 import '../features/student/views/student_screen.dart';
 import '../features/teacher/views/teacher_screen.dart';
+import '../features/teacher/views/principal_teacher_accounts_screen.dart';
+import '../shared/widgets/role_access_guard.dart';
 import 'app_routes.dart';
 
 class AppPages {
@@ -37,15 +42,39 @@ class AppPages {
       page: () => const ForgotPasswordScreen(),
     ),
     GetPage(name: AppRoutes.otp, page: () => const OtpScreen()),
+    GetPage(
+      name: AppRoutes.changePassword,
+      page: () => const ChangePasswordScreen(),
+    ),
+    GetPage(name: AppRoutes.chatbot, page: () => const ChatbotScreen()),
     GetPage(name: AppRoutes.student, page: () => const StudentScreen()),
-    GetPage(name: AppRoutes.teacher, page: () => const TeacherScreen()),
+    GetPage(
+      name: AppRoutes.teacher,
+      page: () => const RoleAccessGuard(
+        requiredRole: 'Teacher',
+        child: TeacherScreen(),
+      ),
+    ),
     GetPage(
       name: AppRoutes.teacherAttendance,
-      page: () => const TeacherAttendanceScreen(),
+      page: () => const RoleAccessGuard(
+        requiredRole: 'Teacher',
+        child: TeacherAttendanceScreen(),
+      ),
+    ),
+    GetPage(
+      name: AppRoutes.principalAttendance,
+      page: () => const RoleAccessGuard(
+        requiredRole: 'Principal',
+        child: TeacherAttendanceScreen(),
+      ),
     ),
     GetPage(
       name: AppRoutes.teacherExamRoutine,
-      page: () => const TeacherExamRoutineScreen(),
+      page: () => const RoleAccessGuard(
+        requiredRole: 'Teacher',
+        child: TeacherExamRoutineScreen(),
+      ),
     ),
     GetPage(
       name: AppRoutes.studentExamRoutine,
@@ -53,12 +82,18 @@ class AppPages {
     ),
     GetPage(
       name: AppRoutes.principalExamRoutine,
-      page: () => const TeacherExamRoutineScreen(roleLabel: 'Principal'),
+      page: () => const RoleAccessGuard(
+        requiredRole: 'Principal',
+        child: TeacherExamRoutineScreen(roleLabel: 'Principal'),
+      ),
     ),
     GetPage(
       name: AppRoutes.teacherHomework,
       //
-      page: () => const TeacherHomeworkScreen(),
+      page: () => const RoleAccessGuard(
+        requiredRole: 'Teacher',
+        child: TeacherHomeworkScreen(),
+      ),
     ),
     GetPage(
       name: AppRoutes.studentHomework,
@@ -70,7 +105,10 @@ class AppPages {
     ),
     GetPage(
       name: AppRoutes.teacherSolution,
-      page: () => const TeacherSolutionScreen(),
+      page: () => const RoleAccessGuard(
+        requiredRole: 'Teacher',
+        child: TeacherSolutionScreen(),
+      ),
     ),
     GetPage(
       name: AppRoutes.studentSolution,
@@ -78,13 +116,39 @@ class AppPages {
     ),
     GetPage(
       name: AppRoutes.principalSolution,
-      page: () => const TeacherSolutionScreen(roleLabel: 'Principal'),
+      page: () => const RoleAccessGuard(
+        requiredRole: 'Principal',
+        child: TeacherSolutionScreen(roleLabel: 'Principal'),
+      ),
     ),
     GetPage(
       name: AppRoutes.principalHomework,
-      page: () => const TeacherHomeworkScreen(),
+      page: () => const RoleAccessGuard(
+        requiredRole: 'Principal',
+        child: TeacherHomeworkScreen(),
+      ),
     ),
-    GetPage(name: AppRoutes.principal, page: () => const PrincipalScreen()),
+    GetPage(
+      name: AppRoutes.principal,
+      page: () => const RoleAccessGuard(
+        requiredRole: 'Principal',
+        child: PrincipalScreen(),
+      ),
+    ),
+    GetPage(
+      name: AppRoutes.studentAdmissions,
+      page: () => const RoleAccessGuard(
+        requiredRole: 'Principal',
+        child: PrincipalStudentAdmissionsScreen(),
+      ),
+    ),
+    GetPage(
+      name: AppRoutes.teacherAccounts,
+      page: () => const RoleAccessGuard(
+        requiredRole: 'Principal',
+        child: PrincipalTeacherAccountsScreen(),
+      ),
+    ),
     GetPage(
       name: AppRoutes.profile,
       page: () {
@@ -102,10 +166,11 @@ class AppPages {
     GetPage(
       name: AppRoutes.schoolInfo,
       page: () {
-        final args = Get.arguments as Map<String, dynamic>;
+        final args = Get.arguments;
+        final map = args is Map<String, dynamic> ? args : <String, dynamic>{};
         return SchoolInfoScreen(
-          role: args['role'] as String,
-          type: args['type'] as SchoolInfoType,
+          role: (map['role'] as String?) ?? 'Student',
+          type: (map['type'] as SchoolInfoType?) ?? SchoolInfoType.notice,
         );
       },
     ),
@@ -115,19 +180,29 @@ class AppPages {
     ),
     GetPage(
       name: AppRoutes.teacherResult,
-      page: () => const TeacherResultScreen(),
+      page: () {
+        final roleLabel = (Get.arguments as String?) ?? 'Teacher';
+        final screen = TeacherResultScreen(roleLabel: roleLabel);
+        if (roleLabel.toLowerCase() == 'principal') {
+          return RoleAccessGuard(requiredRole: 'Principal', child: screen);
+        }
+        return RoleAccessGuard(requiredRole: 'Teacher', child: screen);
+      },
     ),
-    GetPage(
-      name: AppRoutes.studentQuiz,
-      page: () => const StudentQuizScreen(),
-    ),
+    GetPage(name: AppRoutes.studentQuiz, page: () => const StudentQuizScreen()),
     GetPage(
       name: AppRoutes.teacherQuiz,
-      page: () => const TeacherQuizScreen(),
+      page: () => const RoleAccessGuard(
+        requiredRole: 'Teacher',
+        child: TeacherQuizScreen(),
+      ),
     ),
     GetPage(
       name: AppRoutes.principalQuiz,
-      page: () => const TeacherQuizScreen(roleLabel: 'Principal'),
+      page: () => const RoleAccessGuard(
+        requiredRole: 'Principal',
+        child: TeacherQuizScreen(roleLabel: 'Principal'),
+      ),
     ),
   ];
 }

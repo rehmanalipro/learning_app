@@ -1,0 +1,13 @@
+{
+  "name": "learning-app-tools",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Local admin scripts for learning_app",
+  "type": "commonjs",
+  "scripts": {
+    "bootstrap:principal": "node bootstrap_principal.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0"
+  }
+}

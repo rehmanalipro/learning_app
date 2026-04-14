@@ -1,57 +1,158 @@
-# Firestore Collection Structure
+# Firestore Structure
 
-This project should use the following top-level Firestore collections.
+This app should use principal-controlled student identity records as the source
+of truth. Public signup is only for creating an account and linking it to an
+existing admission record.
 
-## Required Collections
+## Core Collections
 
-### `users/`
+### `principals/{uid}`
 
-Document id: `uid`
+Purpose: the only trusted admin account for principal-only screens.
 
 Suggested fields:
+- `uid`
+- `authUid`
+- `email`
+- `name`
+- `role`
+- `phone`
+- `imagePath`
+- `className`
+- `section`
+- `subject`
+- `createdAt`
+- `updatedAt`
+
+Notes:
+- Document id must be the same as the Firebase Auth uid.
+- Keep only one principal document in production.
+- Use the bootstrap script in `tool/bootstrap_principal.md` instead of manual
+  app-side signup.
+
+### `users/{uid}`
+
+Purpose: authentication-facing account record for the signed-in user.
+
+Suggested fields:
+- `uid`
 - `email`
 - `name`
 - `role`
 - `phone`
 - `className`
 - `section`
+- `subject`
+- `rollNumber`
 - `programName`
+- `admissionNo`
+- `dateOfBirth`
+- `linkedStudentProfileId`
 - `imagePath`
 - `createdAt`
 - `updatedAt`
 
-### `students/`
+Notes:
+- For students, `className`, `section`, `rollNumber`, `programName`,
+  `admissionNo`, and `linkedStudentProfileId` should be copied from
+  `student_profiles`.
+- Students should not be the source of truth for class identity.
 
-Document id: `studentId` or `uid`
+### `student_profiles/{studentProfileId}`
+
+Purpose: principal-managed master admission record.
 
 Suggested fields:
-- `name`
-- `email`
-- `rollNumber`
+- `admissionNo`
+- `fullName`
+- `fatherName`
+- `dateOfBirth`
+- `phone`
 - `className`
 - `section`
+- `rollNumber`
 - `programName`
-- `imagePath`
+- `status`
+- `linkedUserUid`
+- `linkedUserEmail`
+- `createdBy`
 - `createdAt`
 - `updatedAt`
 
-### `teachers/`
+Notes:
+- This is the primary identity for result, attendance, and roster flows.
+- A student account should only be created when `admissionNo + dateOfBirth`
+  matches an existing document here.
 
-Document id: `teacherId` or `uid`
+### `teacher_profiles/{teacherProfileId}`
+
+Purpose: principal-managed teacher identity record.
 
 Suggested fields:
 - `name`
 - `email`
 - `phone`
-- `subject`
-- `department`
-- `imagePath`
+- `employeeId`
+- `status`
 - `createdAt`
 - `updatedAt`
 
-### `attendance_entries/`
+### `teacher_assignments/{assignmentId}`
 
-Document id: `attendanceId`
+Purpose: class/section/subject permissions for a teacher.
+
+Suggested fields:
+- `teacherUid`
+- `teacherProfileId`
+- `teacherName`
+- `className`
+- `section`
+- `subject`
+- `session`
+- `isClassTeacher`
+- `isActive`
+- `createdAt`
+- `updatedAt`
+
+Notes:
+- A teacher can have multiple assignments.
+- Result, homework, attendance, quiz, and exam posting should eventually use
+  this collection instead of one fixed class binding.
+
+## Academic Collections
+
+### `results/{resultId}`
+
+Purpose: one result row per student profile, subject, term, and exam type.
+
+Suggested fields:
+- `studentId`
+- `studentUid`
+- `studentName`
+- `studentEmail`
+- `admissionNo`
+- `rollNumber`
+- `className`
+- `section`
+- `courseCode`
+- `subject`
+- `creditHours`
+- `score`
+- `maxScore`
+- `term`
+- `examType`
+- `teacherId`
+- `teacherName`
+- `remarks`
+- `createdAt`
+- `updatedAt`
+
+Notes:
+- `studentId` should store the `student_profiles` document id.
+- `studentUid` is optional and only exists when the student has linked an
+  account.
+
+### `attendance_entries/{attendanceId}`
 
 Suggested fields:
 - `studentId`
@@ -66,9 +167,7 @@ Suggested fields:
 - `markedAt`
 - `markedBy`
 
-### `homework_assignments/`
-
-Document id: `assignmentId`
+### `homework_assignments/{assignmentId}`
 
 Suggested fields:
 - `className`
@@ -83,9 +182,7 @@ Suggested fields:
 - `dueDate`
 - `createdAt`
 
-### `homework_submissions/`
-
-Document id: `submissionId`
+### `homework_submissions/{submissionId}`
 
 Suggested fields:
 - `assignmentId`
@@ -104,30 +201,7 @@ Suggested fields:
 - `submittedAt`
 - `reviewedAt`
 
-### `results/`
-
-Document id: `resultId`
-
-Suggested fields:
-- `studentId`
-- `studentName`
-- `className`
-- `section`
-- `courseCode`
-- `subject`
-- `creditHours`
-- `score`
-- `maxScore`
-- `term`
-- `examType`
-- `teacherId`
-- `teacherName`
-- `createdAt`
-- `updatedAt`
-
-### `exam_schedules/`
-
-Document id: `scheduleId`
+### `exam_schedules/{scheduleId}`
 
 Suggested fields:
 - `className`
@@ -148,9 +222,34 @@ Suggested fields:
 - `dateSheetPath`
 - `createdAt`
 
-### `school_data/`
+### `quizzes/{quizId}`
 
-Use a single document like `school_data/main`.
+Suggested fields:
+- `className`
+- `section`
+- `subject`
+- `teacherId`
+- `teacherName`
+- `question`
+- `options`
+- `correctAnswer`
+- `createdAt`
+
+### `quiz_attempts/{attemptId}`
+
+Suggested fields:
+- `quizId`
+- `studentId`
+- `studentEmail`
+- `studentName`
+- `selectedAnswer`
+- `isCorrect`
+- `score`
+- `submittedAt`
+
+## School Collections
+
+### `school_data/main`
 
 Suggested fields:
 - `announcement`
@@ -165,8 +264,29 @@ Suggested fields:
 - `darkModeEnabled`
 - `readNoticeIdsByRole`
 
-## Notes
+### `school_notices/{noticeId}`
 
-- `school_data/` is now the preferred collection instead of `app_meta/school_data`.
-- Teacher solution data is now stored inside `homework_assignments/` documents instead of a separate `homework_solutions/` collection.
-- `quizzes/` and `quiz_attempts/` can still exist as optional feature collections if the quiz module is enabled.
+Suggested fields:
+- `title`
+- `body`
+- `authorName`
+- `authorRole`
+- `category`
+- `scope`
+- `className`
+- `section`
+- `createdAt`
+
+## Current Implementation Slice
+
+Implemented in code:
+- `student_profiles`
+- admission-linked student signup
+- roster loading from `student_profiles` with legacy fallback to `users`
+- result rows keyed by student profile id
+- student profile screen made read-only for identity fields
+
+Recommended next slice:
+- `teacher_assignments` UI and enforcement
+- principal assignment screen
+- result sheet filters driven by teacher assignments instead of one fixed class

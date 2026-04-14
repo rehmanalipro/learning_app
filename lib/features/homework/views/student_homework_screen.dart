@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/services/class_binding_service.dart';
 import '../../../core/theme/app_theme_helper.dart';
 import '../../../routes/app_routes.dart';
 import '../../../shared/widgets/app_screen_header.dart';
@@ -22,6 +23,7 @@ class StudentHomeworkScreen extends StatefulWidget {
 class _StudentHomeworkScreenState extends State<StudentHomeworkScreen> {
   final HomeworkProvider _homeworkProvider = Get.find<HomeworkProvider>();
   final ProfileProvider _profileProvider = Get.find<ProfileProvider>();
+  final ClassBindingService _classBinding = Get.find<ClassBindingService>();
   int _selectedTabIndex = 0;
 
   Future<void> _refreshScreen() async {
@@ -96,9 +98,16 @@ class _StudentHomeworkScreenState extends State<StudentHomeworkScreen> {
 
   Widget _buildAssignments(BuildContext context) {
     final palette = context.appPalette;
-    final studentProfile = _profileProvider.profileFor('Student');
-    final studentClass = (studentProfile.className ?? '').trim();
-    final studentSection = (studentProfile.section ?? '').trim().toUpperCase();
+    final studentClass = _classBinding.className.value.trim();
+    final studentSection = _classBinding.section.value.trim().toUpperCase();
+
+    if (studentClass.isEmpty || studentSection.isEmpty) {
+      return const _EmptyStateCard(
+        title: 'Class information not found',
+        message: 'Class information not found. Please contact your teacher.',
+      );
+    }
+
     final assignments = _homeworkProvider.assignments
         .where(
           (item) =>
@@ -111,9 +120,7 @@ class _StudentHomeworkScreenState extends State<StudentHomeworkScreen> {
       return _EmptyStateCard(
         title: 'No task for your class yet',
         message:
-            studentClass.isEmpty || studentSection.isEmpty
-                ? 'Set your class and section in My Profile to see the correct homework.'
-                : 'Only homework for Class $studentClass Section $studentSection will appear here.',
+            'Only homework for Class $studentClass Section $studentSection will appear here.',
       );
     }
 
@@ -370,8 +377,8 @@ class _StudentHomeworkScreenState extends State<StudentHomeworkScreen> {
                 ),
                 child: Text(
                   _selectedTabIndex == 0
-                      ? 'This section shows only the homework tasks uploaded by teachers.'
-                      : 'This section shows only your own uploaded homework PDFs and feedback.',
+                      ? 'This section shows homework tasks assigned by your teacher.'
+                      : 'This section shows your submitted homework and teacher feedback.',
                   style: TextStyle(
                     color: palette.inverseText.withValues(alpha: 0.92),
                     height: 1.5,

@@ -9,6 +9,7 @@ import '../../../core/theme/app_theme_helper.dart';
 import '../../../shared/widgets/app_screen_header.dart';
 import '../../../shared/widgets/app_refresh_scope.dart';
 import '../../../shared/widgets/responsive_content.dart';
+import '../../auth/providers/firebase_auth_provider.dart';
 import '../../student/providers/student_provider.dart';
 import '../models/homework_assignment_model.dart';
 import '../providers/homework_provider.dart';
@@ -29,15 +30,17 @@ class _TeacherSolutionScreenState extends State<TeacherSolutionScreen> {
   final HomeworkProvider _homeworkProvider = Get.find<HomeworkProvider>();
   final StudentProvider _studentProvider = Get.find<StudentProvider>();
   final FirebaseStorageService _storageService = FirebaseStorageService();
-  final TextEditingController _teacherNameController = TextEditingController();
+  final FirebaseAuthProvider _authProvider = Get.find<FirebaseAuthProvider>();
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
 
   HomeworkAssignmentModel? _selectedAssignment;
   bool _sendToWholeClass = true;
+  String _teacherName = 'Teacher';
   String? _pdfName;
   String? _pdfPath;
   final Set<String> _selectedStudents = <String>{};
+  bool _isSending = false;
 
   Future<void> _refreshScreen() async {
     await Future.wait([
@@ -49,16 +52,29 @@ class _TeacherSolutionScreenState extends State<TeacherSolutionScreen> {
   @override
   void initState() {
     super.initState();
-    _teacherNameController.text =
-        widget.roleLabel == 'Principal' ? 'Principal User' : 'Teacher User';
+    _loadTeacherIdentity();
   }
 
   @override
   void dispose() {
-    _teacherNameController.dispose();
     _titleController.dispose();
     _descriptionController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadTeacherIdentity() async {
+    final userData = await _authProvider.loadCurrentUserData();
+    if (!mounted) return;
+
+    final fallback = widget.roleLabel == 'Principal' ? 'Principal' : 'Teacher';
+    final resolvedName =
+        (userData?['name'] as String?)?.trim().isNotEmpty == true
+        ? (userData!['name'] as String).trim()
+        : fallback;
+
+    setState(() {
+      _teacherName = resolvedName;
+    });
   }
 
   Future<void> _openPdf(String? path) async {
@@ -108,15 +124,25 @@ class _TeacherSolutionScreenState extends State<TeacherSolutionScreen> {
     return '$day/$month/${date.year}';
   }
 
-  Future<void> _sendSolution() async {
+  void _resetSolutionForm() {
+    _titleController.clear();
+    _descriptionController.clear();
+    _pdfName = null;
+    _pdfPath = null;
+    _selectedStudents.clear();
+    _sendToWholeClass = true;
+  }
+
+  Future<void> _sendSolution(BuildContext sheetContext) async {
+    final navigator = Navigator.of(sheetContext);
     final assignment = _selectedAssignment;
     if (assignment == null ||
-        _teacherNameController.text.trim().isEmpty ||
+        _teacherName.trim().isEmpty ||
         _titleController.text.trim().isEmpty ||
         _pdfName == null) {
       Get.snackbar(
         'Validation',
-        'Assignment, teacher name, title aur solution PDF required hain.',
+        'Assignment, teacher name, title, and solution PDF are required.',
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
@@ -124,54 +150,66 @@ class _TeacherSolutionScreenState extends State<TeacherSolutionScreen> {
     if (!_sendToWholeClass && _selectedStudents.isEmpty) {
       Get.snackbar(
         'Select students',
-        'Agar whole class off hai to kam az kam ek student select karein.',
+        'Please select at least one student when "Whole Class" is disabled.',
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
     }
 
     final wholeClassSelection = _sendToWholeClass;
-    final uploadedPdfUrl = _pdfPath == null
-        ? null
-        : await _storageService.uploadFile(
-            localPath: _pdfPath!,
-            folder: 'homework/solutions',
-            fileName: _pdfName,
-          );
+    setState(() {
+      _isSending = true;
+    });
 
-    await _homeworkProvider.addSolution(
-      assignmentId: assignment.id,
-      className: assignment.className,
-      section: assignment.section,
-      subject: assignment.subject,
-      teacherName: _teacherNameController.text.trim(),
-      title: _titleController.text.trim(),
-      description: _descriptionController.text.trim(),
-      pdfName: _pdfName!,
-      pdfPath: uploadedPdfUrl ?? _pdfPath,
-      sendToWholeClass: wholeClassSelection,
-      targetStudentNames: _selectedStudents.toList(growable: false),
-    );
+    try {
+      final uploadedPdfUrl = _pdfPath == null
+          ? null
+          : await _storageService.uploadFile(
+              localPath: _pdfPath!,
+              folder: 'homework/solutions',
+              fileName: _pdfName,
+            );
 
-    _titleController.clear();
-    _descriptionController.clear();
-    _pdfName = null;
-    _pdfPath = null;
-    _selectedStudents.clear();
-    _sendToWholeClass = true;
-    Get.back();
-    Get.snackbar(
-      'Solution sent',
-      wholeClassSelection
-          ? 'Class ${assignment.className} ke tamam students ko solution bhej diya gaya.'
-          : 'Selected students ko solution bhej diya gaya.',
-      snackPosition: SnackPosition.BOTTOM,
-    );
-    setState(() {});
+      await _homeworkProvider.addSolution(
+        assignmentId: assignment.id,
+        className: assignment.className,
+        section: assignment.section,
+        subject: assignment.subject,
+        teacherName: _teacherName.trim(),
+        title: _titleController.text.trim(),
+        description: _descriptionController.text.trim(),
+        pdfName: _pdfName!,
+        pdfPath: uploadedPdfUrl ?? _pdfPath,
+        sendToWholeClass: wholeClassSelection,
+        targetStudentNames: _selectedStudents.toList(growable: false),
+      );
+
+      _resetSolutionForm();
+      if (navigator.canPop()) {
+        navigator.pop();
+      }
+      Get.snackbar(
+        'Solution sent',
+        wholeClassSelection
+            ? 'Solution has been shared with all students in Class ${assignment.className}.'
+            : 'Solution has been shared with the selected students.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      if (mounted) {
+        setState(() {});
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSending = false;
+        });
+      }
+    }
   }
 
   void _openSendSheet() {
     final palette = context.appPalette;
+    _resetSolutionForm();
     _selectedAssignment ??=
         _homeworkProvider.assignments.isNotEmpty ? _homeworkProvider.assignments.first : null;
     Get.bottomSheet(
@@ -242,12 +280,9 @@ class _TeacherSolutionScreenState extends State<TeacherSolutionScreen> {
                       },
                     ),
                     const SizedBox(height: 12),
-                    TextField(
-                      controller: _teacherNameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Teacher Name',
-                        border: OutlineInputBorder(),
-                      ),
+                    _ReadOnlyField(
+                      label: 'Teacher Name',
+                      value: _teacherName,
                     ),
                     const SizedBox(height: 12),
                     TextField(
@@ -347,13 +382,22 @@ class _TeacherSolutionScreenState extends State<TeacherSolutionScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
-                        onPressed: () => _sendSolution(),
-                        icon: const Icon(Icons.send_outlined),
+                        onPressed: _isSending ? null : () => _sendSolution(context),
+                        icon: _isSending
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.send_outlined),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: palette.primary,
                           foregroundColor: palette.inverseText,
                         ),
-                        label: const Text('Send Solution'),
+                        label: Text(_isSending ? 'Sending...' : 'Send Solution'),
                       ),
                     ),
                   ],
@@ -556,6 +600,25 @@ class _CountBadge extends StatelessWidget {
           fontSize: 12,
           fontWeight: FontWeight.w700,
         ),
+      ),
+    );
+  }
+}
+
+class _ReadOnlyField extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _ReadOnlyField({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      readOnly: true,
+      controller: TextEditingController(text: value),
+      decoration: InputDecoration(
+        labelText: label,
+        border: const OutlineInputBorder(),
       ),
     );
   }

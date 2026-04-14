@@ -55,6 +55,22 @@ class ResultProvider extends GetxController {
     await _resultService.upsertResult(result);
   }
 
+  Future<void> deleteResult(String resultId) async {
+    await _resultService.deleteResult(resultId);
+  }
+
+  String buildResultId({
+    required String studentKey,
+    required String subject,
+    required String term,
+    required String examType,
+  }) => _resultService.buildResultId(
+    studentKey: studentKey,
+    subject: subject,
+    term: term,
+    examType: examType,
+  );
+
   Future<void> loadClassTermExam({
     required String className,
     required String section,
@@ -67,5 +83,33 @@ class ResultProvider extends GetxController {
       term: term,
       examType: examType,
     );
+  }
+
+  Future<void> bulkUpsertResults({
+    required List<Map<String, dynamic>> roster,
+    required String className,
+    required String section,
+    required String subject,
+    required String term,
+    required String examType,
+    required String teacherId,
+    required String teacherName,
+    required Map<String, ({double score, double maxScore})> scores,
+  }) async {
+    await _resultService.bulkUpsertResults(
+      roster: roster,
+      className: className,
+      section: section,
+      subject: subject,
+      term: term,
+      examType: examType,
+      teacherId: teacherId,
+      teacherName: teacherName,
+      scores: scores,
+    );
+  }
+
+  Future<void> loadByStudentId(String studentProfileId) async {
+    results.value = await _resultService.getByStudentId(studentProfileId);
   }
 }

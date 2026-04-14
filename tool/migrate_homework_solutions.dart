@@ -1,7 +1,8 @@
+// ignore_for_file: avoid_print
 import 'package:firebase_core/firebase_core.dart';
 
-import '../lib/features/homework/services/homework_migration_service.dart';
-import '../lib/firebase_options.dart';
+import 'package:learning_app/features/homework/services/homework_migration_service.dart';
+import 'package:learning_app/firebase_options.dart';
 
 Future<void> main(List<String> args) async {
   final deleteSource = args.contains('--delete-source');

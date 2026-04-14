@@ -2,10 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_core/firebase_core.dart';
 
+import 'core/services/chatbot_service.dart';
+import 'core/services/class_binding_service.dart';
+import 'core/services/class_roster_service.dart';
+import 'core/services/fcm_service.dart';
+import 'core/services/otp_service.dart';
 import 'firebase_options.dart';
 import 'features/attendance/controllers/attendance_controller.dart';
 import 'features/attendance/providers/attendance_provider.dart';
 import 'features/attendance/services/attendance_service.dart';
+import 'features/admission/providers/student_profile_provider.dart';
+import 'features/admission/services/student_profile_service.dart';
 import 'features/exam/controllers/exam_schedule_controller.dart';
 import 'features/exam/providers/exam_schedule_provider.dart';
 import 'features/exam/services/exam_schedule_service.dart';
@@ -16,9 +23,9 @@ import 'features/auth/providers/firebase_auth_provider.dart';
 import 'features/auth/services/user_service.dart';
 import 'features/profile/providers/profile_provider.dart';
 import 'features/quiz/providers/quiz_provider.dart';
+import 'features/quiz/services/quiz_service.dart';
 import 'features/profile/controllers/profile_controller.dart';
 import 'features/profile/services/profile_service.dart';
-import 'features/result/controllers/result_controller.dart';
 import 'features/result/providers/result_provider.dart';
 import 'features/result/services/result_service.dart';
 import 'features/student/providers/student_provider.dart';
@@ -26,6 +33,9 @@ import 'features/student/controllers/student_controller.dart';
 import 'features/student/services/student_service.dart';
 import 'features/teacher/providers/teacher_provider.dart';
 import 'features/teacher/controllers/teacher_controller.dart';
+import 'features/teacher/providers/teacher_profile_provider.dart';
+import 'features/teacher/services/teacher_assignment_service.dart';
+import 'features/teacher/services/teacher_profile_service.dart';
 import 'features/teacher/services/teacher_service.dart';
 import 'features/school/providers/school_data_provider.dart';
 import 'features/school/controllers/school_controller.dart';
@@ -49,14 +59,44 @@ Future<void> bootstrapApp({
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
-    } catch (_) {
-      // Allow the app to boot with local/demo data when Firebase is not
-      // configured for the current platform.
+    } on UnsupportedError catch (e) {
+      // Platform not configured yet (iOS/Web/macOS placeholders).
+      // App will run in demo/local mode without Firebase.
+      // ignore: avoid_print
+      print('[Firebase] Skipped: ${e.message}');
+    } catch (e) {
+      // Firebase init failed for another reason (e.g. bad credentials).
+      // ignore: avoid_print
+      print('[Firebase] Init error: $e');
     }
+  }
+
+  if (!Get.isRegistered<FcmService>()) {
+    Get.put(FcmService(), permanent: true);
+  }
+
+  if (!Get.isRegistered<OtpService>()) {
+    Get.put(OtpService(), permanent: true);
+  }
+  if (!Get.isRegistered<ChatbotService>()) {
+    Get.put(ChatbotService(), permanent: true);
+  }
+
+  if (!Get.isRegistered<ClassBindingService>()) {
+    Get.put(ClassBindingService(), permanent: true);
+  }
+  if (!Get.isRegistered<ClassRosterService>()) {
+    Get.put(ClassRosterService(), permanent: true);
   }
 
   if (!Get.isRegistered<AttendanceService>()) {
     Get.put(AttendanceService(), permanent: true);
+  }
+  if (!Get.isRegistered<StudentProfileService>()) {
+    Get.put(StudentProfileService(), permanent: true);
+  }
+  if (!Get.isRegistered<StudentProfileProvider>()) {
+    Get.put(StudentProfileProvider(), permanent: true);
   }
   if (!Get.isRegistered<AttendanceProvider>()) {
     Get.put(AttendanceProvider(), permanent: true);
@@ -85,6 +125,12 @@ Future<void> bootstrapApp({
   if (!Get.isRegistered<UserService>()) {
     Get.put(UserService(), permanent: true);
   }
+  if (!Get.isRegistered<TeacherAssignmentService>()) {
+    Get.put(TeacherAssignmentService(), permanent: true);
+  }
+  if (!Get.isRegistered<TeacherProfileService>()) {
+    Get.put(TeacherProfileService(), permanent: true);
+  }
   if (!Get.isRegistered<FirebaseAuthProvider>()) {
     Get.put(FirebaseAuthProvider(), permanent: true);
   }
@@ -97,6 +143,9 @@ Future<void> bootstrapApp({
   if (!Get.isRegistered<ProfileController>()) {
     Get.put(ProfileController(), permanent: true);
   }
+  if (!Get.isRegistered<QuizService>()) {
+    Get.put(QuizService(), permanent: true);
+  }
   if (!Get.isRegistered<QuizProvider>()) {
     Get.put(QuizProvider(), permanent: true);
   }
@@ -105,9 +154,6 @@ Future<void> bootstrapApp({
   }
   if (!Get.isRegistered<ResultProvider>()) {
     Get.put(ResultProvider(), permanent: true);
-  }
-  if (!Get.isRegistered<ResultController>()) {
-    Get.put(ResultController(), permanent: true);
   }
   if (!Get.isRegistered<StudentService>()) {
     Get.put(StudentService(), permanent: true);
@@ -120,6 +166,9 @@ Future<void> bootstrapApp({
   }
   if (!Get.isRegistered<TeacherService>()) {
     Get.put(TeacherService(), permanent: true);
+  }
+  if (!Get.isRegistered<TeacherProfileProvider>()) {
+    Get.put(TeacherProfileProvider(), permanent: true);
   }
   if (!Get.isRegistered<TeacherProvider>()) {
     Get.put(TeacherProvider(), permanent: true);
@@ -166,9 +215,7 @@ class MyApp extends StatelessWidget {
       () => GetMaterialApp(
         title: 'School Management System',
         debugShowCheckedModeBanner: false,
-        themeMode: resolvedThemeProvider.modeFor(
-          resolvedThemeProvider.currentRole.value,
-        ),
+        themeMode: resolvedThemeProvider.currentMode.value,
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(
             seedColor: const Color(0xFF1E56CF),
@@ -195,6 +242,8 @@ class MyApp extends StatelessWidget {
         ),
         initialRoute: initialRoute,
         getPages: AppPages.routes,
+        defaultTransition: Transition.cupertino,
+        transitionDuration: const Duration(milliseconds: 280),
       ),
     );
   }

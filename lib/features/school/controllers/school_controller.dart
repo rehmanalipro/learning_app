@@ -25,19 +25,37 @@ class SchoolController extends GetxController {
     required String authorName,
     required String authorRole,
     required String category,
+    String scope = 'school',
+    String? className,
+    String? section,
   }) => _service.publishNotice(
     title: title,
     body: body,
     authorName: authorName,
     authorRole: authorRole,
     category: category,
+    scope: scope,
+    className: className,
+    section: section,
   );
 
-  int unreadNoticeCountForRole(String role) =>
-      _service.unreadNoticeCountForRole(role);
+  List<NoticePostModel> noticesForRole({
+    required String role,
+    String? className,
+    String? section,
+  }) => _service.noticesForRole(role: role, className: className, section: section);
 
-  List<NoticePostModel> unreadPostsForRole(String role) =>
-      _service.unreadPostsForRole(role);
+  int unreadNoticeCountForRole(
+    String role, {
+    String? className,
+    String? section,
+  }) => _service.unreadNoticeCountForRole(role, className: className, section: section);
+
+  List<NoticePostModel> unreadPostsForRole(
+    String role, {
+    String? className,
+    String? section,
+  }) => _service.unreadPostsForRole(role, className: className, section: section);
 
   bool isNoticeRead(String role, String noticeId) =>
       _service.isNoticeRead(role, noticeId);

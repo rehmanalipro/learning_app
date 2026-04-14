@@ -3,11 +3,11 @@ import 'package:get/get.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/services/class_binding_service.dart';
 import '../../../core/theme/app_theme_helper.dart';
 import '../../../shared/widgets/app_screen_header.dart';
 import '../../../shared/widgets/app_refresh_scope.dart';
 import '../../../shared/widgets/responsive_content.dart';
-import '../../profile/providers/profile_provider.dart';
 import '../controllers/exam_schedule_controller.dart';
 import '../models/exam_schedule_model.dart';
 
@@ -15,10 +15,7 @@ class StudentExamRoutineScreen extends StatelessWidget {
   const StudentExamRoutineScreen({super.key});
 
   Future<void> _refreshScreen() async {
-    await Future.wait([
-      Get.find<ExamScheduleController>().loadSchedules(),
-      Get.find<ProfileProvider>().loadProfiles(),
-    ]);
+    await Get.find<ExamScheduleController>().loadSchedules();
   }
 
   String _dateLabel(DateTime date) {
@@ -65,7 +62,7 @@ class StudentExamRoutineScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.appPalette;
     final controller = Get.find<ExamScheduleController>();
-    final profileProvider = Get.find<ProfileProvider>();
+    final classBinding = Get.find<ClassBindingService>();
 
     return Scaffold(
       backgroundColor: palette.scaffold,
@@ -74,9 +71,8 @@ class StudentExamRoutineScreen extends StatelessWidget {
         subtitle: 'Your class schedule and datesheet',
       ),
       body: Obx(() {
-        final student = profileProvider.profileFor('Student');
-        final className = (student.className ?? '').trim();
-        final section = (student.section ?? '').trim().toUpperCase();
+        final className = classBinding.className.value.trim();
+        final section = classBinding.section.value.trim().toUpperCase();
         final schedules = controller.schedulesForClass(
           className: className,
           section: section,
@@ -109,7 +105,7 @@ class StudentExamRoutineScreen extends StatelessWidget {
                     ),
                     child: Text(
                       className.isEmpty || section.isEmpty
-                          ? 'Profile me class aur section set karein taa ke correct exam routine nazar aaye.'
+                          ? 'Class information not found. Please contact your teacher.'
                           : 'Class $className Section $section ka calendar, next exam summary, aur full room details yahan available hain.',
                       style: TextStyle(
                         color: palette.inverseText.withValues(alpha: 0.92),
@@ -211,9 +207,11 @@ class StudentExamRoutineScreen extends StatelessWidget {
                     const Center(child: CircularProgressIndicator())
                   else if (schedules.isEmpty)
                     _EmptyStateCard(
-                      title: 'No exam routine available yet',
+                      title: className.isEmpty || section.isEmpty
+                          ? 'Class information not found'
+                          : 'No exam routine available yet',
                       message: className.isEmpty || section.isEmpty
-                          ? 'Profile update karein.'
+                          ? 'Class information not found. Please contact your teacher.'
                           : 'Teacher ya principal jab Class $className-$section ka schedule upload karein ge to yahan show hoga.',
                     )
                   else

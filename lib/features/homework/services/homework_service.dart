@@ -29,6 +29,34 @@ class HomeworkService extends GetxService {
     }
   }
 
+  /// Loads assignments filtered by [className] and [section].
+  /// Students call this; teachers and principals call [loadAll].
+  Future<void> loadForClass({
+    required String className,
+    required String section,
+  }) async {
+    isLoading.value = true;
+    try {
+      final fetched = await _store.getCollection<HomeworkAssignmentModel>(
+        path: _assignmentsCollection,
+        fromMap: HomeworkAssignmentModel.fromMap,
+      );
+      final filtered = fetched
+          .where(
+            (item) =>
+                item.className.trim() == className.trim() &&
+                item.section.trim().toUpperCase() ==
+                    section.trim().toUpperCase(),
+          )
+          .toList(growable: false)
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      assignments.value = filtered;
+      _syncSolutionsFromAssignments();
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   Future<void> _loadAssignments() async {
     final fetched = await _store.getCollection<HomeworkAssignmentModel>(
       path: _assignmentsCollection,
@@ -36,13 +64,7 @@ class HomeworkService extends GetxService {
     );
 
     if (fetched.isEmpty && assignments.isEmpty) {
-      final seed = _seedAssignment();
-      await _store.setCollectionDocument(
-        collectionPath: _assignmentsCollection,
-        id: seed.id,
-        data: seed.toMap(),
-      );
-      assignments.value = [seed];
+      assignments.clear();
       solutions.clear();
     } else {
       assignments.value = fetched..sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -57,21 +79,6 @@ class HomeworkService extends GetxService {
     );
     submissions.value = fetched
       ..sort((a, b) => b.submittedAt.compareTo(a.submittedAt));
-  }
-
-  HomeworkAssignmentModel _seedAssignment() {
-    return HomeworkAssignmentModel(
-      id: 'hw-1',
-      className: '3',
-      section: 'A',
-      subject: 'English',
-      teacherName: 'Sara Ahmed',
-      title: 'Reading Summary',
-      details: 'Read chapter 2 and upload a short summary in PDF format.',
-      pdfName: 'reading_summary_task.pdf',
-      createdAt: DateTime.now().subtract(const Duration(hours: 4)),
-      dueDate: DateTime.now().add(const Duration(days: 2)),
-    );
   }
 
   void _syncSolutionsFromAssignments() {

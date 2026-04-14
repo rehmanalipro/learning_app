@@ -30,13 +30,7 @@ class ExamScheduleService extends GetxService {
         fromMap: ExamScheduleModel.fromMap,
       );
       if (fetched.isEmpty && schedules.isEmpty) {
-        final demo = _demoSchedule();
-        await _store.setCollectionDocument(
-          collectionPath: _collection,
-          id: demo.id,
-          data: demo.toMap(),
-        );
-        schedules.value = [demo];
+        schedules.clear();
       } else {
         schedules.value = fetched..sort((a, b) => a.examDate.compareTo(b.examDate));
       }
@@ -63,28 +57,6 @@ class ExamScheduleService extends GetxService {
           startMinutes < item.endMinutes && endMinutes > item.startMinutes;
       return sameClass && sameSection && sameDate && overlap;
     });
-  }
-
-  ExamScheduleModel _demoSchedule() {
-    return ExamScheduleModel(
-      id: 'exam-1',
-      className: '3',
-      section: 'A',
-      subject: 'English',
-      uploadedByName: 'Sara Ahmed',
-      uploadedByRole: 'Teacher',
-      examDate: DateTime.now().add(const Duration(days: 6)),
-      startMinutes: 9 * 60,
-      endMinutes: 11 * 60,
-      shiftLabel: 'Morning',
-      place: 'Main Campus',
-      blockName: 'Block B',
-      roomNumber: 'Room 12',
-      seatLabel: 'Front Rows 1-10',
-      description: 'Reach 20 minutes early with admit card and blue pen.',
-      dateSheetName: 'class_3_midterm_datesheet.pdf',
-      createdAt: DateTime.now(),
-    );
   }
 
   Future<String?> addSchedule({

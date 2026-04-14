@@ -43,3 +43,22 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Keystore files - never commit these
+*.jks
+*.keystore
+android/keystore.properties
+
+# Environment secrets
+.env
+*.env
+dart_defines.env
+dart_defines.json
+serviceAccount*.json
+firebase-admin*.json
+tool/*.secrets.json
+
+# Firebase Email Extension Config (contains SMTP credentials)
+firebase-email-extension-config.md
+extensions/*.env
+.secret.local

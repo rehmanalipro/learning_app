@@ -12,6 +12,16 @@ Create or configure these Firebase products:
   - Start in test mode first, then tighten rules
 - Firebase Storage
 
+## Principal Bootstrap
+
+If you want a single locked principal account without manual Firestore editing,
+use:
+
+- `tool/bootstrap_principal.md`
+
+This script creates the Firebase Auth user and the matching
+`principals/<uid>` Firestore document for you.
+
 ## Required App Config
 
 Replace placeholder values in:

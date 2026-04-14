@@ -24,6 +24,9 @@ class ProfileController extends GetxController {
     String? className,
     String? section,
     String? programName,
+    String? admissionNo,
+    String? rollNumber,
+    String? linkedStudentProfileId,
     String? imagePath,
   }) {
     return _service.saveSignupProfile(
@@ -34,6 +37,9 @@ class ProfileController extends GetxController {
       className: className,
       section: section,
       programName: programName,
+      admissionNo: admissionNo,
+      rollNumber: rollNumber,
+      linkedStudentProfileId: linkedStudentProfileId,
       imagePath: imagePath,
     );
   }
@@ -46,6 +52,9 @@ class ProfileController extends GetxController {
     String? className,
     String? section,
     String? programName,
+    String? admissionNo,
+    String? rollNumber,
+    String? linkedStudentProfileId,
     String? imagePath,
   }) {
     return _service.updateProfile(
@@ -56,6 +65,9 @@ class ProfileController extends GetxController {
       className: className,
       section: section,
       programName: programName,
+      admissionNo: admissionNo,
+      rollNumber: rollNumber,
+      linkedStudentProfileId: linkedStudentProfileId,
       imagePath: imagePath,
     );
   }

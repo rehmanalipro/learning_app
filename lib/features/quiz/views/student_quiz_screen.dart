@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../core/services/class_binding_service.dart';
 import '../../../core/theme/app_theme_helper.dart';
 import '../../../shared/widgets/app_refresh_scope.dart';
 import '../../../shared/widgets/app_screen_header.dart';
@@ -19,6 +20,7 @@ class StudentQuizScreen extends StatefulWidget {
 class _StudentQuizScreenState extends State<StudentQuizScreen> {
   final QuizProvider _quizProvider = Get.find<QuizProvider>();
   final ProfileProvider _profileProvider = Get.find<ProfileProvider>();
+  final ClassBindingService _classBinding = Get.find<ClassBindingService>();
 
   QuizModel? _activeQuiz;
   int _currentQuestionIndex = 0;
@@ -47,7 +49,7 @@ class _StudentQuizScreenState extends State<StudentQuizScreen> {
     if (_selectedAnswers[_currentQuestionIndex] < 0) {
       Get.snackbar(
         'Select answer',
-        'Next par jane se pehle ek option select karein.',
+        'Please select an option before proceeding.',
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
@@ -79,9 +81,8 @@ class _StudentQuizScreenState extends State<StudentQuizScreen> {
   @override
   Widget build(BuildContext context) {
     final palette = context.appPalette;
-    final student = _profileProvider.profileFor('Student');
-    final className = (student.className ?? '').trim();
-    final section = (student.section ?? '').trim().toUpperCase();
+    final className = _classBinding.className.value.trim();
+    final section = _classBinding.section.value.trim().toUpperCase();
     final quizzes = _quizProvider.quizzesForClass(
       className: className,
       section: section,
@@ -114,7 +115,7 @@ class _StudentQuizScreenState extends State<StudentQuizScreen> {
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Text(
-                          'Quiz attempt karte hi aap ko foran result mil jayega ke kitne answers right thay aur kitne wrong.',
+                          'You will get an instant result right after submitting the quiz.',
                           style: TextStyle(
                             color: palette.inverseText.withValues(alpha: 0.92),
                             height: 1.5,
@@ -127,9 +128,9 @@ class _StudentQuizScreenState extends State<StudentQuizScreen> {
                       if (_latestResult != null) const SizedBox(height: 18),
                       if (className.isEmpty || section.isEmpty)
                         const _EmptyStateCard(
-                          title: 'Class profile missing',
+                          title: 'Class information not found',
                           message:
-                              'Profile me class aur section set karein taa ke correct quiz nazar aaye.',
+                              'Class information not found. Please contact your teacher.',
                         )
                       else if (quizzes.isEmpty)
                         _EmptyStateCard(

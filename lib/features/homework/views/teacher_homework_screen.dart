@@ -4,11 +4,13 @@ import 'package:get/get.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/services/class_binding_service.dart';
 import '../../../core/services/firebase_storage_service.dart';
 import '../../../core/theme/app_theme_helper.dart';
 import '../../../shared/widgets/app_screen_header.dart';
 import '../../../shared/widgets/app_refresh_scope.dart';
 import '../../../shared/widgets/responsive_content.dart';
+import '../../auth/providers/firebase_auth_provider.dart';
 import '../models/homework_submission_model.dart';
 import '../providers/homework_provider.dart';
 
@@ -22,21 +24,50 @@ class TeacherHomeworkScreen extends StatefulWidget {
 class _TeacherHomeworkScreenState extends State<TeacherHomeworkScreen> {
   final HomeworkProvider _homeworkProvider = Get.find<HomeworkProvider>();
   final FirebaseStorageService _storageService = FirebaseStorageService();
-  final TextEditingController _teacherNameController = TextEditingController();
+  final ClassBindingService _classBinding = Get.find<ClassBindingService>();
+  final FirebaseAuthProvider _authProvider = Get.find<FirebaseAuthProvider>();
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _detailsController = TextEditingController();
-  final List<String> _classes = const ['1', '2', '3', '4', '5'];
-  final List<String> _sections = const ['A', 'B', 'C'];
-  final List<String> _subjects = const ['English', 'Math', 'Science', 'Urdu'];
   int _selectedTabIndex = 0;
   String _selectedClass = '3';
   String _selectedSection = 'A';
   String _selectedSubject = 'English';
+  String _teacherName = 'Teacher';
   String? _pdfName;
   String? _pdfPath;
   DateTime _dueDate = DateTime.now().add(const Duration(days: 2));
+  bool _isAssigning = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedClass = _classBinding.className.value.isNotEmpty
+        ? _classBinding.className.value
+        : '3';
+    _selectedSection = _classBinding.section.value.isNotEmpty
+        ? _classBinding.section.value
+        : 'A';
+    _selectedSubject = _classBinding.subject.value.isNotEmpty
+        ? _classBinding.subject.value
+        : 'English';
+    _loadTeacherIdentity();
+  }
 
   Future<void> _refreshScreen() => _homeworkProvider.loadAll();
+
+  Future<void> _loadTeacherIdentity() async {
+    final userData = await _authProvider.loadCurrentUserData();
+    if (!mounted) return;
+
+    final resolvedName =
+        (userData?['name'] as String?)?.trim().isNotEmpty == true
+        ? (userData!['name'] as String).trim()
+        : 'Teacher';
+
+    setState(() {
+      _teacherName = resolvedName;
+    });
+  }
 
   Future<void> _pickPdf(StateSetter setModalState) async {
     final result = await FilePicker.platform.pickFiles(
@@ -153,8 +184,17 @@ class _TeacherHomeworkScreenState extends State<TeacherHomeworkScreen> {
     );
   }
 
-  Future<void> _assign() async {
-    if (_teacherNameController.text.trim().isEmpty ||
+  void _resetAssignForm() {
+    _titleController.clear();
+    _detailsController.clear();
+    _pdfName = null;
+    _pdfPath = null;
+    _dueDate = DateTime.now().add(const Duration(days: 2));
+  }
+
+  Future<void> _assign(BuildContext sheetContext) async {
+    final navigator = Navigator.of(sheetContext);
+    if (_teacherName.trim().isEmpty ||
         _titleController.text.trim().isEmpty ||
         _pdfName == null) {
       Get.snackbar(
@@ -165,45 +205,59 @@ class _TeacherHomeworkScreenState extends State<TeacherHomeworkScreen> {
       return;
     }
 
-    final uploadedPdfUrl = _pdfPath == null
-        ? null
-        : await _storageService.uploadFile(
-            localPath: _pdfPath!,
-            folder: 'homework/assignments',
-            fileName: _pdfName,
-          );
-
-    await _homeworkProvider.addAssignment(
-      className: _selectedClass,
-      section: _selectedSection,
-      subject: _selectedSubject,
-      teacherName: _teacherNameController.text.trim(),
-      title: _titleController.text.trim(),
-      details: _detailsController.text.trim(),
-      pdfName: _pdfName!,
-      dueDate: _dueDate,
-      pdfPath: uploadedPdfUrl ?? _pdfPath,
-    );
-
-    _titleController.clear();
-    _detailsController.clear();
     setState(() {
-      _selectedTabIndex = 0;
-      _pdfName = null;
-      _pdfPath = null;
-      _dueDate = DateTime.now().add(const Duration(days: 2));
+      _isAssigning = true;
     });
 
-    Get.back();
-    Get.snackbar(
-      'Homework assigned',
-      'Students can now view this task.',
-      snackPosition: SnackPosition.BOTTOM,
-    );
+    try {
+      final uploadedPdfUrl = _pdfPath == null
+          ? null
+          : await _storageService.uploadFile(
+              localPath: _pdfPath!,
+              folder: 'homework/assignments',
+              fileName: _pdfName,
+            );
+
+      await _homeworkProvider.addAssignment(
+        className: _selectedClass,
+        section: _selectedSection,
+        subject: _selectedSubject,
+        teacherName: _teacherName.trim(),
+        title: _titleController.text.trim(),
+        details: _detailsController.text.trim(),
+        pdfName: _pdfName!,
+        dueDate: _dueDate,
+        pdfPath: uploadedPdfUrl ?? _pdfPath,
+      );
+
+      _resetAssignForm();
+      if (mounted) {
+        setState(() {
+          _selectedTabIndex = 0;
+        });
+      }
+
+      if (navigator.canPop()) {
+        navigator.pop();
+      }
+
+      Get.snackbar(
+        'Homework assigned',
+        'Students can now view this task.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isAssigning = false;
+        });
+      }
+    }
   }
 
   void _openAssignSheet() {
     final palette = context.appPalette;
+    _resetAssignForm();
     Get.bottomSheet(
       StatefulBuilder(
         builder: (context, setModalState) {
@@ -246,33 +300,24 @@ class _TeacherHomeworkScreenState extends State<TeacherHomeworkScreen> {
                       style: TextStyle(color: palette.subtext),
                     ),
                     const SizedBox(height: 18),
-                    _DropdownField(
+                    _ReadOnlyField(
                       label: 'Class',
                       value: _selectedClass,
-                      items: _classes,
-                      onChanged: (value) =>
-                          setModalState(() => _selectedClass = value!),
                     ),
                     const SizedBox(height: 12),
-                    _DropdownField(
+                    _ReadOnlyField(
                       label: 'Section',
                       value: _selectedSection,
-                      items: _sections,
-                      onChanged: (value) =>
-                          setModalState(() => _selectedSection = value!),
                     ),
                     const SizedBox(height: 12),
-                    _DropdownField(
+                    _ReadOnlyField(
                       label: 'Subject',
                       value: _selectedSubject,
-                      items: _subjects,
-                      onChanged: (value) =>
-                          setModalState(() => _selectedSubject = value!),
                     ),
                     const SizedBox(height: 12),
-                    _InputField(
-                      controller: _teacherNameController,
+                    _ReadOnlyField(
                       label: 'Teacher Name',
+                      value: _teacherName,
                     ),
                     const SizedBox(height: 12),
                     _InputField(
@@ -347,12 +392,21 @@ class _TeacherHomeworkScreenState extends State<TeacherHomeworkScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: () => _assign(),
+                        onPressed: _isAssigning ? null : () => _assign(context),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: palette.primary,
                           foregroundColor: palette.inverseText,
                         ),
-                        child: const Text('Assign Homework'),
+                        child: _isAssigning
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Text('Assign Homework'),
                       ),
                     ),
                   ],
@@ -645,7 +699,6 @@ class _TeacherHomeworkScreenState extends State<TeacherHomeworkScreen> {
 
   @override
   void dispose() {
-    _teacherNameController.dispose();
     _titleController.dispose();
     _detailsController.dispose();
     super.dispose();
@@ -688,8 +741,8 @@ class _TeacherHomeworkScreenState extends State<TeacherHomeworkScreen> {
                 ),
                 child: Text(
                   _selectedTabIndex == 0
-                      ? 'This section only shows homework assigned by teachers. Tap + to create a new task.'
-                      : 'This section only shows student uploaded homework PDFs and review status.',
+                      ? 'This section shows homework assigned by teachers. Tap + to create a new task.'
+                      : 'This section shows student uploaded homework PDFs and review status.',
                   style: TextStyle(
                     color: palette.inverseText.withValues(alpha: 0.92),
                     height: 1.5,
@@ -706,6 +759,41 @@ class _TeacherHomeworkScreenState extends State<TeacherHomeworkScreen> {
           ),
         ),
         ),
+      ),
+    );
+  }
+}
+
+class _ReadOnlyField extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _ReadOnlyField({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.appPalette;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+      decoration: BoxDecoration(
+        color: palette.surfaceAlt,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: palette.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(fontSize: 12, color: palette.subtext),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: TextStyle(color: palette.text, fontWeight: FontWeight.w600),
+          ),
+        ],
       ),
     );
   }
@@ -739,43 +827,6 @@ class _InputField extends StatelessWidget {
           borderSide: BorderSide(color: palette.primary, width: 1.2),
         ),
       ),
-    );
-  }
-}
-
-class _DropdownField extends StatelessWidget {
-  final String label;
-  final String value;
-  final List<String> items;
-  final ValueChanged<String?> onChanged;
-
-  const _DropdownField({
-    required this.label,
-    required this.value,
-    required this.items,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.appPalette;
-    return DropdownButtonFormField<String>(
-      initialValue: value,
-      decoration: InputDecoration(
-        labelText: label,
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: palette.border),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: palette.primary, width: 1.2),
-        ),
-      ),
-      items: items
-          .map((item) => DropdownMenuItem(value: item, child: Text(item)))
-          .toList(growable: false),
-      onChanged: onChanged,
     );
   }
 }

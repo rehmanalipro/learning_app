@@ -40,6 +40,10 @@ class NoticePostModel {
   final String authorRole;
   final String category;
   final DateTime createdAt;
+  /// 'school' (visible to all) or 'class' (scoped to className+section).
+  final String scope;
+  final String? className;
+  final String? section;
 
   const NoticePostModel({
     required this.id,
@@ -49,6 +53,9 @@ class NoticePostModel {
     required this.authorRole,
     required this.category,
     required this.createdAt,
+    this.scope = 'school',
+    this.className,
+    this.section,
   });
 
   NoticePostModel copyWith({
@@ -59,6 +66,9 @@ class NoticePostModel {
     String? authorRole,
     String? category,
     DateTime? createdAt,
+    String? scope,
+    String? className,
+    String? section,
   }) {
     return NoticePostModel(
       id: id ?? this.id,
@@ -68,6 +78,9 @@ class NoticePostModel {
       authorRole: authorRole ?? this.authorRole,
       category: category ?? this.category,
       createdAt: createdAt ?? this.createdAt,
+      scope: scope ?? this.scope,
+      className: className ?? this.className,
+      section: section ?? this.section,
     );
   }
 
@@ -80,6 +93,9 @@ class NoticePostModel {
       'authorRole': authorRole,
       'category': category,
       'createdAt': createdAt.toIso8601String(),
+      'scope': scope,
+      'className': className,
+      'section': section,
     };
   }
 
@@ -94,6 +110,9 @@ class NoticePostModel {
       createdAt:
           DateTime.tryParse(map['createdAt'] as String? ?? '') ??
           DateTime.now(),
+      scope: map['scope'] as String? ?? 'school',
+      className: map['className'] as String?,
+      section: map['section'] as String?,
     );
   }
 }

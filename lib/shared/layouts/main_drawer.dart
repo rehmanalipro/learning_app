@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../features/auth/providers/firebase_auth_provider.dart';
 import '../../core/theme/app_theme_helper.dart';
 import '../../features/profile/providers/profile_provider.dart';
 import '../../features/school/views/school_info_screen.dart';
@@ -17,12 +18,14 @@ class MainDrawer extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.appPalette;
     final profileProvider = Get.find<ProfileProvider>();
+    final authProvider = Get.find<FirebaseAuthProvider>();
 
     return Drawer(
       child: Column(
         children: [
           Obx(() {
             final profile = profileProvider.profileFor(role);
+            final imagePath = profile.imagePath;
             return Container(
               height: 180,
               width: double.infinity,
@@ -34,12 +37,12 @@ class MainDrawer extends StatelessWidget {
                   CircleAvatar(
                     radius: 36,
                     backgroundColor: palette.surface,
-                    backgroundImage: profile.imagePath == null
+                    backgroundImage: imagePath == null || imagePath.isEmpty
                         ? null
-                        : profile.imagePath!.startsWith('http')
-                            ? NetworkImage(profile.imagePath!)
-                            : FileImage(File(profile.imagePath!)) as ImageProvider,
-                    child: profile.imagePath == null
+                        : imagePath.startsWith('http')
+                        ? NetworkImage(imagePath)
+                        : FileImage(File(imagePath)) as ImageProvider,
+                    child: imagePath == null || imagePath.isEmpty
                         ? Icon(
                             Icons.person_outline,
                             size: 32,
@@ -120,6 +123,40 @@ class MainDrawer extends StatelessWidget {
                     },
                   ),
                   _DrawerTile(
+                    icon: Icons.smart_toy_outlined,
+                    label: 'AI Assistant',
+                    onTap: () {
+                      Get.back();
+                      Get.toNamed(AppRoutes.chatbot);
+                    },
+                  ),
+                  if (role.toLowerCase() == 'principal')
+                    _DrawerTile(
+                      icon: Icons.how_to_reg_outlined,
+                      label: 'Student Admissions',
+                      onTap: () {
+                        Get.back();
+                        Get.toNamed(AppRoutes.studentAdmissions);
+                      },
+                    ),
+                  if (role.toLowerCase() == 'principal')
+                    _DrawerTile(
+                      icon: Icons.badge_outlined,
+                      label: 'Teacher Accounts',
+                      onTap: () {
+                        Get.back();
+                        Get.toNamed(AppRoutes.teacherAccounts);
+                      },
+                    ),
+                  _DrawerTile(
+                    icon: Icons.lock_reset_outlined,
+                    label: 'Change Password',
+                    onTap: () {
+                      Get.back();
+                      Get.toNamed(AppRoutes.changePassword);
+                    },
+                  ),
+                  _DrawerTile(
                     icon: Icons.settings_outlined,
                     label: 'Settings',
                     onTap: () {
@@ -136,8 +173,9 @@ class MainDrawer extends StatelessWidget {
                   _DrawerTile(
                     icon: Icons.logout_outlined,
                     label: 'Logout',
-                    onTap: () {
+                    onTap: () async {
                       Get.back();
+                      await authProvider.signOut(role: role);
                       Get.offAllNamed(AppRoutes.choose);
                     },
                   ),

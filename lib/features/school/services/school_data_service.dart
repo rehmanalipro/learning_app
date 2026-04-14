@@ -5,6 +5,7 @@ import '../models/school_data_model.dart';
 
 class SchoolDataService extends GetxService {
   static const _documentPath = 'school_data/main';
+  static const _noticesCollection = 'school_notices';
 
   final FirestoreCollectionService _store = FirestoreCollectionService();
   final Rx<SchoolDataModel> schoolData = _defaultSchoolData().obs;
@@ -17,27 +18,13 @@ class SchoolDataService extends GetxService {
 
   static SchoolDataModel _defaultSchoolData() {
     return SchoolDataModel(
-      announcement: 'Tomorrow assembly will start at 8:00 AM.',
-      noticePosts: [
-        NoticePostModel(
-          id: 'notice-1',
-          title: 'Morning Assembly Timing Updated',
-          body:
-              'Tomorrow assembly will start at 8:00 AM. All students must arrive on time in proper uniform and line formation.',
-          authorName: 'Ayesha Khan',
-          authorRole: 'Principal',
-          category: 'Notice',
-          createdAt: DateTime.now().subtract(const Duration(hours: 3)),
-        ),
-      ],
-      schoolName: 'Creative Reader\'s Public School',
-      schoolLocation: 'Main Campus, Karachi',
-      schoolFounded: 'Founded in 2012',
-      publicationProfile:
-          'Creative Reader\'s Publication supports school notes, books, and learning material for all classes.',
-      emergencyContacts: const [
-        EmergencyContactModel(name: 'School Office', phone: '+92 300 1111111'),
-      ],
+      announcement: '',
+      noticePosts: const [],
+      schoolName: '',
+      schoolLocation: '',
+      schoolFounded: '',
+      publicationProfile: '',
+      emergencyContacts: const [],
       schoolImagePath: null,
       notificationsEnabled: true,
       darkModeEnabled: false,
@@ -54,6 +41,7 @@ class SchoolDataService extends GetxService {
     final raw = await _store.getRawDocument(_documentPath);
     if (raw == null) {
       await persistSchoolData();
+      await _loadNoticePosts();
       feedRevision.value++;
       return;
     }
@@ -74,7 +62,35 @@ class SchoolDataService extends GetxService {
           ),
         ),
       );
+    await _loadNoticePosts(legacyPosts: schoolData.value.noticePosts);
     feedRevision.value++;
+  }
+
+  Future<void> _loadNoticePosts({
+    List<NoticePostModel> legacyPosts = const [],
+  }) async {
+    final fetched = await _store.getCollection<NoticePostModel>(
+      path: _noticesCollection,
+      fromMap: (_, data) => NoticePostModel.fromMap(data),
+    );
+
+    if (fetched.isEmpty && legacyPosts.isNotEmpty) {
+      for (final post in legacyPosts) {
+        await _store.setCollectionDocument(
+          collectionPath: _noticesCollection,
+          id: post.id,
+          data: post.toMap(),
+          merge: true,
+        );
+      }
+      schoolData.value = schoolData.value.copyWith(
+        noticePosts: legacyPosts..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
+      );
+      return;
+    }
+
+    fetched.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    schoolData.value = schoolData.value.copyWith(noticePosts: fetched);
   }
 
   Future<void> persistSchoolData() {
@@ -102,6 +118,9 @@ class SchoolDataService extends GetxService {
     required String authorName,
     required String authorRole,
     required String category,
+    String scope = 'school',
+    String? className,
+    String? section,
   }) async {
     final post = NoticePostModel(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
@@ -111,8 +130,16 @@ class SchoolDataService extends GetxService {
       authorRole: authorRole,
       category: category,
       createdAt: DateTime.now(),
+      scope: scope,
+      className: className,
+      section: section,
     );
 
+    await _store.setCollectionDocument(
+      collectionPath: _noticesCollection,
+      id: post.id,
+      data: post.toMap(),
+    );
     schoolData.value = schoolData.value.copyWith(
       announcement: title,
       noticePosts: [post, ...sortedNoticePosts],
@@ -121,17 +148,44 @@ class SchoolDataService extends GetxService {
     feedRevision.value++;
   }
 
-  List<NoticePostModel> unreadPostsForRole(String role) {
+  /// Returns notices visible to [role].
+  ///
+  /// - principal: all notices.
+  /// - others: all scope:'school' notices + scope:'class' notices matching
+  ///   [className] and [section].
+  List<NoticePostModel> noticesForRole({
+    required String role,
+    String? className,
+    String? section,
+  }) {
+    if (role.toLowerCase() == 'principal') return sortedNoticePosts;
+    return sortedNoticePosts.where((post) {
+      if (post.scope == 'school') return true;
+      return post.scope == 'class' &&
+          post.className == className &&
+          post.section == section;
+    }).toList(growable: false);
+  }
+
+  List<NoticePostModel> unreadPostsForRole(
+    String role, {
+    String? className,
+    String? section,
+  }) {
     final key = role.toLowerCase();
     final readIds = readNoticeIdsByRole[key] ?? <String>{};
-    return sortedNoticePosts
+    return noticesForRole(role: role, className: className, section: section)
         .where((post) => !readIds.contains(post.id))
         .toList(growable: false);
   }
 
-  int unreadNoticeCountForRole(String role) {
-    if (!schoolData.value.notificationsEnabled) return 0;
-    return unreadPostsForRole(role).length;
+  int unreadNoticeCountForRole(
+    String role, {
+    String? className,
+    String? section,
+  }) {
+    return unreadPostsForRole(role, className: className, section: section)
+        .length;
   }
 
   bool isNoticeRead(String role, String noticeId) {

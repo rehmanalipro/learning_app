@@ -27,6 +27,7 @@ class _SubmitHomeworkScreenState extends State<SubmitHomeworkScreen> {
   final TextEditingController _answerController = TextEditingController();
   String? _pdfName;
   String? _pdfPath;
+  bool _isSubmitting = false;
 
   HomeworkAssignmentModel get assignment =>
       Get.arguments as HomeworkAssignmentModel;
@@ -41,7 +42,7 @@ class _SubmitHomeworkScreenState extends State<SubmitHomeworkScreen> {
     if (assignment.pdfPath == null || assignment.pdfPath!.isEmpty) {
       Get.snackbar(
         'PDF unavailable',
-        'This assignment PDF is not stored locally in the demo data.',
+        'This assignment PDF is not available.',
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
@@ -85,32 +86,43 @@ class _SubmitHomeworkScreenState extends State<SubmitHomeworkScreen> {
       return;
     }
 
-    final uploadedPdfUrl = _pdfPath == null
-        ? null
-        : await _storageService.uploadFile(
-            localPath: _pdfPath!,
-            folder: 'homework/submissions',
-            fileName: _pdfName,
-          );
+    setState(() => _isSubmitting = true);
+    try {
+      final uploadedPdfUrl = _pdfPath == null
+          ? null
+          : await _storageService.uploadFile(
+              localPath: _pdfPath!,
+              folder: 'homework/submissions',
+              fileName: _pdfName,
+            );
 
-    await _homeworkProvider.submitHomework(
-      assignmentId: assignment.id,
-      studentName: _studentNameController.text.trim(),
-      className: assignment.className,
-      section: assignment.section,
-      subject: assignment.subject,
-      teacherName: assignment.teacherName,
-      answerText: _answerController.text.trim(),
-      pdfName: _pdfName!,
-      pdfPath: uploadedPdfUrl ?? _pdfPath,
-    );
+      await _homeworkProvider.submitHomework(
+        assignmentId: assignment.id,
+        studentName: _studentNameController.text.trim(),
+        className: assignment.className,
+        section: assignment.section,
+        subject: assignment.subject,
+        teacherName: assignment.teacherName,
+        answerText: _answerController.text.trim(),
+        pdfName: _pdfName!,
+        pdfPath: uploadedPdfUrl ?? _pdfPath,
+      );
 
-    Get.back();
-    Get.snackbar(
-      'Homework submitted',
-      'Teacher can now see your PDF submission.',
-      snackPosition: SnackPosition.BOTTOM,
-    );
+      Get.back();
+      Get.snackbar(
+        'Homework submitted',
+        'Your submission has been sent to the teacher.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } catch (e) {
+      Get.snackbar(
+        'Error',
+        'Failed to submit. Please try again.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
   }
 
   @override
@@ -210,13 +222,22 @@ class _SubmitHomeworkScreenState extends State<SubmitHomeworkScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () => _submit(),
+                onPressed: _isSubmitting ? null : _submit,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: palette.primary,
                   foregroundColor: palette.inverseText,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
-                child: const Text('Submit'),
+                child: _isSubmitting
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text('Submit'),
               ),
             ),
           ],

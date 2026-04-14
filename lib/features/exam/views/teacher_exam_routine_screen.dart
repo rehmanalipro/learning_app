@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/services/class_binding_service.dart';
 import '../../../core/services/firebase_storage_service.dart';
 import '../../../core/theme/app_theme_helper.dart';
 import '../../../shared/widgets/app_screen_header.dart';
@@ -27,6 +28,7 @@ class TeacherExamRoutineScreen extends StatefulWidget {
 class _TeacherExamRoutineScreenState extends State<TeacherExamRoutineScreen> {
   final ExamScheduleController _controller = Get.find<ExamScheduleController>();
   final FirebaseStorageService _storageService = FirebaseStorageService();
+  final ClassBindingService _classBinding = Get.find<ClassBindingService>();
   final TextEditingController _uploaderController = TextEditingController();
   final TextEditingController _placeController = TextEditingController();
   final TextEditingController _blockController = TextEditingController();
@@ -34,10 +36,8 @@ class _TeacherExamRoutineScreenState extends State<TeacherExamRoutineScreen> {
   final TextEditingController _seatController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
 
-  final List<String> _classes = const ['1', '2', '3', '4', '5'];
-  final List<String> _sections = const ['A', 'B', 'C'];
-  String _selectedClass = '1';
-  String _selectedSection = 'A';
+  late String _selectedClass;
+  late String _selectedSection;
   String _selectedSubject = 'English';
   DateTime _selectedDate = DateTime.now().add(const Duration(days: 3));
   TimeOfDay _startTime = const TimeOfDay(hour: 9, minute: 0);
@@ -50,6 +50,12 @@ class _TeacherExamRoutineScreenState extends State<TeacherExamRoutineScreen> {
     super.initState();
     _uploaderController.text =
         widget.roleLabel == 'Principal' ? 'Principal User' : 'Teacher User';
+    _selectedClass = _classBinding.className.value.isNotEmpty
+        ? _classBinding.className.value
+        : '1';
+    _selectedSection = _classBinding.section.value.isNotEmpty
+        ? _classBinding.section.value
+        : 'A';
     _selectedSubject = _controller.subjectsForClass(_selectedClass).first;
   }
 
@@ -157,7 +163,7 @@ class _TeacherExamRoutineScreenState extends State<TeacherExamRoutineScreen> {
         _seatController.text.trim().isEmpty) {
       Get.snackbar(
         'Validation',
-        'Uploader, place, block, room, aur seat details zaroori hain.',
+        'Uploader name, place, block, room, and seat details are required.',
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
@@ -165,7 +171,7 @@ class _TeacherExamRoutineScreenState extends State<TeacherExamRoutineScreen> {
     if (endMinutes <= startMinutes) {
       Get.snackbar(
         'Invalid time',
-        'Exam ka end time start time se baad hona chahiye.',
+        'Exam end time must be after the start time.',
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
@@ -265,26 +271,14 @@ class _TeacherExamRoutineScreenState extends State<TeacherExamRoutineScreen> {
                       style: TextStyle(color: palette.subtext),
                     ),
                     const SizedBox(height: 16),
-                    _DropdownField(
+                    _ReadOnlyField(
                       label: 'Class',
                       value: _selectedClass,
-                      items: _classes,
-                      onChanged: (value) {
-                        if (value == null) return;
-                        setModalState(() {
-                          _selectedClass = value;
-                          _selectedSubject =
-                              _controller.subjectsForClass(value).first;
-                        });
-                      },
                     ),
                     const SizedBox(height: 12),
-                    _DropdownField(
+                    _ReadOnlyField(
                       label: 'Section',
                       value: _selectedSection,
-                      items: _sections,
-                      onChanged: (value) =>
-                          setModalState(() => _selectedSection = value!),
                     ),
                     const SizedBox(height: 12),
                     TextField(
@@ -457,7 +451,7 @@ class _TeacherExamRoutineScreenState extends State<TeacherExamRoutineScreen> {
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Text(
-                    'Ab routine me class-specific subjects, exact start/end time, place, block, room, seat labels, PDF datesheet, aur overlap validation sab included hain.',
+                    'Schedule includes class-specific subjects, exact timing, location, seat labels, PDF datesheet, and overlap validation.',
                     style: TextStyle(
                       color: palette.inverseText.withValues(alpha: 0.92),
                       height: 1.5,
@@ -578,6 +572,41 @@ class _TeacherExamRoutineScreenState extends State<TeacherExamRoutineScreen> {
           ),
         ),
         ),
+      ),
+    );
+  }
+}
+
+class _ReadOnlyField extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _ReadOnlyField({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.appPalette;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+      decoration: BoxDecoration(
+        color: palette.surfaceAlt,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: palette.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(fontSize: 12, color: palette.subtext),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: TextStyle(color: palette.text, fontWeight: FontWeight.w600),
+          ),
+        ],
       ),
     );
   }

@@ -2,58 +2,397 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // ─── Helper Functions ───────────────────────────────────────────────────
+
+    // User signed in hai?
     function signedIn() {
       return request.auth != null;
     }
 
+    // Apna document access kar raha hai?
     function isOwner(uid) {
       return signedIn() && request.auth.uid == uid;
     }
 
-    match /users/{uid} {
-      allow read: if signedIn();
-      allow create: if isOwner(uid);
-      allow update, delete: if isOwner(uid);
+    function hasAuthIndex() {
+      return signedIn()
+          && exists(/databases/$(database)/documents/auth_index/$(request.auth.uid));
     }
+
+    function authIndexCollection() {
+      return hasAuthIndex()
+          ? get(/databases/$(database)/documents/auth_index/$(request.auth.uid)).data.collection
+          : '';
+    }
+
+    function authIndexDocumentId() {
+      return hasAuthIndex()
+          ? get(/databases/$(database)/documents/auth_index/$(request.auth.uid)).data.documentId
+          : '';
+    }
+
+    // Firestore se current user ka role fetch karo
+    function hasStudentAccount() {
+      return signedIn() && (
+          exists(/databases/$(database)/documents/students/$(request.auth.uid))
+          || (authIndexCollection() == 'students'
+              && exists(/databases/$(database)/documents/students/$(authIndexDocumentId())))
+      );
+    }
+
+    function hasTeacherAccount() {
+      return signedIn() && (
+          exists(/databases/$(database)/documents/teachers/$(request.auth.uid))
+          || (authIndexCollection() == 'teachers'
+              && exists(/databases/$(database)/documents/teachers/$(authIndexDocumentId())))
+      );
+    }
+
+    function hasPrincipalAccount() {
+      return signedIn() && (
+          exists(/databases/$(database)/documents/principals/$(request.auth.uid))
+          || (authIndexCollection() == 'principals'
+              && exists(/databases/$(database)/documents/principals/$(authIndexDocumentId())))
+      );
+    }
+
+    function studentAccountDocId() {
+      return exists(/databases/$(database)/documents/students/$(request.auth.uid))
+          ? request.auth.uid
+          : (authIndexCollection() == 'students' ? authIndexDocumentId() : '');
+    }
+
+    function teacherAccountDocId() {
+      return exists(/databases/$(database)/documents/teachers/$(request.auth.uid))
+          ? request.auth.uid
+          : (authIndexCollection() == 'teachers' ? authIndexDocumentId() : '');
+    }
+
+    function principalAccountDocId() {
+      return exists(/databases/$(database)/documents/principals/$(request.auth.uid))
+          ? request.auth.uid
+          : (authIndexCollection() == 'principals' ? authIndexDocumentId() : '');
+    }
+
+    function userRole() {
+      return hasStudentAccount()
+          ? 'student'
+          : hasTeacherAccount()
+              ? 'teacher'
+              : hasPrincipalAccount()
+                  ? 'principal'
+                  : (exists(/databases/$(database)/documents/users/$(request.auth.uid))
+                      ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+                      : '');
+    }
+
+    function isStudent() {
+      return signedIn() && userRole().lower() == 'student';
+    }
+
+    function isTeacher() {
+      return signedIn() && userRole().lower() == 'teacher';
+    }
+
+    function isPrincipal() {
+      return signedIn() && userRole().lower() == 'principal';
+    }
+
+    function isTeacherOrPrincipal() {
+      return isTeacher() || isPrincipal();
+    }
+
+    // Current user ka className (from their users document)
+    function userClassName() {
+      return hasStudentAccount()
+          ? get(/databases/$(database)/documents/students/$(studentAccountDocId())).data.className
+          : hasTeacherAccount()
+              ? get(/databases/$(database)/documents/teachers/$(teacherAccountDocId())).data.className
+              : hasPrincipalAccount()
+                  ? get(/databases/$(database)/documents/principals/$(principalAccountDocId())).data.className
+                  : (exists(/databases/$(database)/documents/users/$(request.auth.uid))
+                      ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.className
+                      : '');
+    }
+
+    // Current user ka section (from their users document)
+    function userSection() {
+      return hasStudentAccount()
+          ? get(/databases/$(database)/documents/students/$(studentAccountDocId())).data.section
+          : hasTeacherAccount()
+              ? get(/databases/$(database)/documents/teachers/$(teacherAccountDocId())).data.section
+              : hasPrincipalAccount()
+                  ? get(/databases/$(database)/documents/principals/$(principalAccountDocId())).data.section
+                  : (exists(/databases/$(database)/documents/users/$(request.auth.uid))
+                      ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.section
+                      : '');
+    }
+
+    function userLinkedStudentProfileId() {
+      return hasStudentAccount()
+          ? get(/databases/$(database)/documents/students/$(studentAccountDocId())).data.linkedStudentProfileId
+          : (exists(/databases/$(database)/documents/users/$(request.auth.uid))
+              ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.linkedStudentProfileId
+              : '');
+    }
+
+    // ─── users ──────────────────────────────────────────────────────────────
+    // Har user apna document read/write kar sakta hai
+    // Teacher/Principal sab users read kar sakte hain (student list ke liye)
+
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isTeacherOrPrincipal() || signedIn();
+      allow create: if isOwner(uid) || isPrincipal();
+      allow update: if isPrincipal()
+                    || (isOwner(uid)
+                        && request.resource.data.role == resource.data.role
+                        && request.resource.data.className == resource.data.className
+                        && request.resource.data.section == resource.data.section
+                        && request.resource.data.subject == resource.data.subject
+                        && request.resource.data.rollNumber == resource.data.rollNumber
+                        && request.resource.data.programName == resource.data.programName
+                        && request.resource.data.admissionNo == resource.data.admissionNo
+                        && request.resource.data.linkedStudentProfileId == resource.data.linkedStudentProfileId);
+      allow delete: if isPrincipal();
+    }
+
+    match /login_directory/{loginId} {
+      allow get: if true;
+      allow list: if isPrincipal();
+      allow create, update, delete: if isPrincipal();
+    }
+
+    match /auth_index/{uid} {
+      allow read: if isOwner(uid) || isPrincipal();
+      allow create, update, delete: if isPrincipal();
+    }
+
+    // ─── email_otps ─────────────────────────────────────────────────────────
+    // OTP verification for signup/forgot-password flow
+    // Users can only read their own OTP documents
+    // Creation/update allowed for authenticated users
+    // Deletion only by system (not exposed to clients)
+    
+    match /email_otps/{otpId} {
+      allow read: if signedIn() && 
+                     request.auth.token.email == resource.data.email;
+      allow create, update: if signedIn();
+      allow delete: if false; // Only server/admin can delete
+    }
+
+    // ─── mail ───────────────────────────────────────────────────────────────
+    // Mail collection for Firebase Email Extension
+    // Users can create mail documents (to send emails)
+    // Only Firebase Extension can read/update/delete (server-side)
+    
+    match /mail/{mailId} {
+      allow create: if signedIn(); // Users can trigger emails
+      allow read, update, delete: if false; // Only server/extension
+    }
+
+    // ─── students ───────────────────────────────────────────────────────────
+    // Students apna record read kar sakte hain
+    // Teacher/Principal read + write kar sakte hain
 
     match /students/{studentId} {
       allow read: if signedIn();
-      allow write: if signedIn();
+      allow create: if isPrincipal();
+      allow update: if isPrincipal()
+                    || (signedIn()
+                        && resource.data.authUid == request.auth.uid
+                        && request.resource.data.role == resource.data.role
+                        && request.resource.data.authUid == resource.data.authUid
+                        && request.resource.data.className == resource.data.className
+                        && request.resource.data.section == resource.data.section
+                        && request.resource.data.rollNumber == resource.data.rollNumber
+                        && request.resource.data.programName == resource.data.programName
+                        && request.resource.data.admissionNo == resource.data.admissionNo
+                        && request.resource.data.linkedStudentProfileId == resource.data.linkedStudentProfileId
+                        && request.resource.data.userId == resource.data.userId);
+      allow delete: if isPrincipal();
     }
+
+    match /student_profiles/{studentProfileId} {
+      allow read: if isPrincipal()
+                  || isTeacher()
+                  || (isStudent() && userLinkedStudentProfileId() == studentProfileId);
+      allow create, update, delete: if isPrincipal();
+    }
+
+    // ─── teachers ───────────────────────────────────────────────────────────
+    // Sab signed-in users read kar sakte hain
+    // Sirf Principal write kar sakta hai
 
     match /teachers/{teacherId} {
       allow read: if signedIn();
-      allow write: if signedIn();
+      allow create: if isPrincipal();
+      allow update: if isPrincipal()
+                    || (signedIn()
+                        && resource.data.authUid == request.auth.uid
+                        && request.resource.data.role == resource.data.role
+                        && request.resource.data.authUid == resource.data.authUid
+                        && request.resource.data.className == resource.data.className
+                        && request.resource.data.section == resource.data.section
+                        && request.resource.data.subject == resource.data.subject
+                        && request.resource.data.userId == resource.data.userId);
+      allow delete: if isPrincipal();
     }
 
-    match /results/{resultId} {
-      allow read: if signedIn();
-      allow write: if signedIn();
+    match /principals/{principalId} {
+      allow read: if (signedIn() && resource.data.authUid == request.auth.uid) || isPrincipal();
+      allow create: if false;
+      allow update: if signedIn()
+                    && resource.data.authUid == request.auth.uid
+                    && request.resource.data.role == resource.data.role
+                    && request.resource.data.uid == resource.data.uid
+                    && request.resource.data.authUid == resource.data.authUid
+                    && request.resource.data.email == resource.data.email;
+      allow delete: if false;
     }
+
+    match /teacher_profiles/{teacherProfileId} {
+      allow read: if signedIn();
+      allow write: if isPrincipal();
+    }
+
+    match /teacher_assignments/{assignmentId} {
+      allow read: if isPrincipal()
+                  || (isTeacher() && resource.data.teacherUid == request.auth.uid);
+      allow create, update, delete: if isPrincipal();
+    }
+
+    // ─── attendance_entries ─────────────────────────────────────────────────
+    // Student: sirf apni entries read kar sakta hai, naya submit kar sakta hai
+    // Teacher: sirf apni class ki entries create/update kar sakta hai
+    // Principal: sab entries read + write kar sakta hai
 
     match /attendance_entries/{entryId} {
-      allow read: if signedIn();
-      allow write: if signedIn();
+      allow read: if isPrincipal()
+                  || isTeacher()
+                  || (isStudent() && resource.data.email == request.auth.token.email);
+      allow create: if isPrincipal()
+                    || (isTeacher() && request.resource.data.className == userClassName()
+                                    && request.resource.data.section == userSection());
+      allow update: if isPrincipal()
+                    || (isTeacher() && resource.data.className == userClassName()
+                                    && resource.data.section == userSection());
+      allow delete: if isPrincipal();
     }
+
+    // ─── homework_assignments ───────────────────────────────────────────────
+    // Student: sirf apni class ki assignments read kar sakta hai
+    // Teacher: sirf apni class ki assignments create/update kar sakta hai
+    // Principal: sab read + write kar sakta hai
 
     match /homework_assignments/{assignmentId} {
-      allow read: if signedIn();
-      allow write: if signedIn();
+      allow read: if isPrincipal()
+                  || isTeacher()
+                  || (isStudent() && resource.data.className == userClassName()
+                                  && resource.data.section == userSection());
+      allow create: if isPrincipal()
+                    || (isTeacher() && request.resource.data.className == userClassName()
+                                    && request.resource.data.section == userSection());
+      allow update: if isPrincipal()
+                    || (isTeacher() && resource.data.className == userClassName()
+                                    && resource.data.section == userSection());
+      allow delete: if isPrincipal();
     }
+
+    // ─── homework_submissions ───────────────────────────────────────────────
+    // Student: apni submissions read + create kar sakta hai
+    // Teacher/Principal: sab submissions read + review (update) kar sakte hain
 
     match /homework_submissions/{submissionId} {
-      allow read: if signedIn();
-      allow write: if signedIn();
+      allow read: if isTeacherOrPrincipal()
+                  || (isStudent() && resource.data.studentEmail == request.auth.token.email);
+      allow create: if isStudent();
+      allow update: if isTeacherOrPrincipal();
+      allow delete: if isPrincipal();
     }
 
-    match /exam_schedules/{scheduleId} {
-      allow read: if signedIn();
-      allow write: if signedIn();
+    // ─── results ────────────────────────────────────────────────────────────
+    // Student: apna result read kar sakta hai
+    // Teacher: sirf apni class ke results create/update kar sakta hai
+    // Principal: sab results read + write kar sakta hai
+
+    match /results/{resultId} {
+      allow read: if isPrincipal()
+                  || isTeacher()
+                  || (isStudent()
+                      && (resource.data.studentId == userLinkedStudentProfileId()
+                          || resource.data.studentUid == request.auth.uid
+                          || resource.data.studentEmail == request.auth.token.email));
+      allow create: if isPrincipal()
+                    || (isTeacher() && request.resource.data.className == userClassName()
+                                    && request.resource.data.section == userSection());
+      allow update: if isPrincipal()
+                    || (isTeacher() && resource.data.className == userClassName()
+                                    && resource.data.section == userSection());
+      allow delete: if isPrincipal()
+                    || (isTeacher() && resource.data.className == userClassName()
+                                    && resource.data.section == userSection());
     }
+
+    // ─── exam_schedules ─────────────────────────────────────────────────────
+    // Student: sirf apni class ki schedules read kar sakta hai
+    // Teacher: sirf apni class ki schedules create/update kar sakta hai
+    // Principal: sab read + write kar sakta hai
+
+    match /exam_schedules/{scheduleId} {
+      allow read: if isPrincipal()
+                  || isTeacher()
+                  || (isStudent() && resource.data.className == userClassName()
+                                  && resource.data.section == userSection());
+      allow create: if isPrincipal()
+                    || (isTeacher() && request.resource.data.className == userClassName()
+                                    && request.resource.data.section == userSection());
+      allow update: if isPrincipal()
+                    || (isTeacher() && resource.data.className == userClassName()
+                                    && resource.data.section == userSection());
+      allow delete: if isPrincipal();
+    }
+
+    // ─── school_data ────────────────────────────────────────────────────────
+    // Sab signed-in users read kar sakte hain (announcements, notices)
+    // Teacher: class-scoped notices write kar sakta hai
+    // Principal: sab write kar sakta hai
+    // Students: write nahi kar sakte
 
     match /school_data/{docId} {
       allow read: if signedIn();
       allow write: if signedIn();
+    }
+
+    match /school_notices/{noticeId} {
+      allow read: if signedIn();
+      allow create: if isPrincipal() || isTeacher();
+      allow update: if isPrincipal() || isTeacher();
+      allow delete: if isPrincipal();
+    }
+
+    // ─── quizzes ────────────────────────────────────────────────────────────
+    // Student: sirf apni class ke quizzes read kar sakta hai
+    // Teacher: sirf apni class ke quizzes create/update kar sakta hai
+    // Principal: sab read + write kar sakta hai
+
+    match /quizzes/{quizId} {
+      allow read: if signedIn();
+      allow create: if isPrincipal() || isTeacher();
+      allow update: if isPrincipal() || isTeacher();
+      allow delete: if isPrincipal();
+    }
+
+    // ─── quiz_attempts ──────────────────────────────────────────────────────
+    // Student: apni attempts read + create kar sakta hai
+    // Teacher/Principal: sab attempts read kar sakte hain
+
+    match /quiz_attempts/{attemptId} {
+      allow read: if isTeacherOrPrincipal()
+                  || (isStudent() && resource.data.studentEmail == request.auth.token.email);
+      allow create: if isStudent();
+      allow update: if false;
+      allow delete: if isPrincipal();
     }
   }
 }

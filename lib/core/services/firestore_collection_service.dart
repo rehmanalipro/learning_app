@@ -18,7 +18,7 @@ class FirestoreCollectionService {
       final snapshot = await _firebaseService.firestore.collection(path).get();
       return snapshot.docs
           .map((doc) => fromMap(doc.id, doc.data()))
-          .toList(growable: false);
+          .toList();
     }, 'Unable to load data from $path');
   }
 

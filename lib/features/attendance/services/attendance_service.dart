@@ -20,15 +20,7 @@ class AttendanceService extends GetxService {
       );
 
       if (fetched.isEmpty && attendanceEntries.isEmpty) {
-        final seed = _seedEntries();
-        for (final entry in seed) {
-          await _store.setCollectionDocument(
-            collectionPath: _collection,
-            id: entry.id,
-            data: entry.toMap(),
-          );
-        }
-        attendanceEntries.value = seed;
+        attendanceEntries.clear();
       } else {
         attendanceEntries.value = fetched
           ..sort((a, b) => b.submittedAt.compareTo(a.submittedAt));
@@ -38,32 +30,6 @@ class AttendanceService extends GetxService {
     } finally {
       isLoading.value = false;
     }
-  }
-
-  List<AttendanceEntryModel> _seedEntries() {
-    return [
-      AttendanceEntryModel(
-        id: 'seed-1',
-        studentName: 'Project Shaku',
-        rollNumber: '03',
-        className: '3',
-        section: 'A',
-        email: 'project.shaku@example.com',
-        submittedAt: DateTime.now().subtract(const Duration(minutes: 12)),
-        status: AttendanceStatus.pending,
-      ),
-      AttendanceEntryModel(
-        id: 'seed-2',
-        studentName: 'Areeba Khan',
-        rollNumber: '14',
-        className: '3',
-        section: 'A',
-        email: 'areeba@example.com',
-        submittedAt: DateTime.now().subtract(const Duration(days: 2)),
-        markedAt: DateTime.now().subtract(const Duration(days: 2, minutes: 20)),
-        status: AttendanceStatus.present,
-      ),
-    ];
   }
 
   Future<void> submitAttendance({
@@ -114,5 +80,44 @@ class AttendanceService extends GetxService {
       merge: true,
     );
     attendanceEntries[index] = updated;
+  }
+
+  /// Upserts one `attendance_entries` document per student in [roster].
+  ///
+  /// Document ID: `<studentUid>_<date>` (e.g. "abc123_2024-01-15").
+  /// If a document already exists for that key, only `status` and `markedAt`
+  /// are updated (merge: true), satisfying Requirement 4.3.
+  Future<void> bulkMarkAttendance({
+    required List<Map<String, dynamic>> roster,
+    required String date,
+    required Map<String, AttendanceStatus> statusMap,
+  }) async {
+    final now = DateTime.now();
+    final futures = roster.map((student) {
+      final uid = student['uid'] as String? ?? '';
+      final docId = '${uid}_$date';
+      final status = statusMap[uid] ?? AttendanceStatus.present;
+
+      final data = <String, dynamic>{
+        'studentName': student['name'] ?? '',
+        'rollNumber': student['rollNumber'] ?? '',
+        'className': student['className'] ?? '',
+        'section': student['section'] ?? '',
+        'email': student['email'] ?? '',
+        'submittedAt': now.toIso8601String(),
+        'markedAt': now.toIso8601String(),
+        'status': status.name,
+        'date': date,
+      };
+
+      return _store.setCollectionDocument(
+        collectionPath: _collection,
+        id: docId,
+        data: data,
+        merge: true,
+      );
+    });
+
+    await Future.wait(futures);
   }
 }

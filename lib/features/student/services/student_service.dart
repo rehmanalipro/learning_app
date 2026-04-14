@@ -17,24 +17,8 @@ class StudentService extends GetxService {
         path: _collection,
         fromMap: StudentModel.fromMap,
       );
-
-      if (fetched.isEmpty && students.isEmpty) {
-        final seed = <StudentModel>[
-          StudentModel(id: 's1', name: 'Ali Khan', className: '3'),
-          StudentModel(id: 's2', name: 'Sara Ahmed', className: '3'),
-          StudentModel(id: 's3', name: 'Bilal Iqbal', className: '4'),
-        ];
-        for (final student in seed) {
-          await _store.setCollectionDocument(
-            collectionPath: _collection,
-            id: student.id,
-            data: student.toMap(),
-          );
-        }
-        students.value = seed;
-      } else {
-        students.value = fetched;
-      }
+      fetched.sort(_compareStudents);
+      students.value = fetched;
       return students.toList(growable: false);
     } finally {
       isLoading.value = false;
@@ -48,6 +32,7 @@ class StudentService extends GetxService {
       data: student.toMap(),
     );
     students.add(student);
+    students.sort(_compareStudents);
   }
 
   Future<void> updateStudent(StudentModel student) async {
@@ -60,11 +45,36 @@ class StudentService extends GetxService {
     final index = students.indexWhere((item) => item.id == student.id);
     if (index != -1) {
       students[index] = student;
+      students.sort(_compareStudents);
     }
   }
 
   Future<void> removeStudent(String id) async {
     await _store.deleteCollectionDocument(collectionPath: _collection, id: id);
     students.removeWhere((item) => item.id == id);
+  }
+
+  int _compareStudents(StudentModel a, StudentModel b) {
+    final classA = int.tryParse(a.className.trim());
+    final classB = int.tryParse(b.className.trim());
+    if (classA != null && classB != null && classA != classB) {
+      return classA.compareTo(classB);
+    }
+    if (a.className != b.className) {
+      return a.className.compareTo(b.className);
+    }
+
+    final sectionCompare = a.section.toLowerCase().compareTo(
+      b.section.toLowerCase(),
+    );
+    if (sectionCompare != 0) return sectionCompare;
+
+    final rollA = int.tryParse(a.rollNumber.trim());
+    final rollB = int.tryParse(b.rollNumber.trim());
+    if (rollA != null && rollB != null && rollA != rollB) {
+      return rollA.compareTo(rollB);
+    }
+
+    return a.name.toLowerCase().compareTo(b.name.toLowerCase());
   }
 }

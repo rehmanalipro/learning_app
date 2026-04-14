@@ -15,7 +15,7 @@ class TeacherScreen extends StatelessWidget {
       onAttendanceTap: () => Get.toNamed(AppRoutes.teacherAttendance),
       onExamRoutineTap: () => Get.toNamed(AppRoutes.teacherExamRoutine),
       onHomeworkTap: () => Get.toNamed(AppRoutes.teacherHomework),
-      onResultTap: () => Get.toNamed(AppRoutes.teacherResult),
+      onResultTap: () => Get.toNamed(AppRoutes.teacherResult, arguments: 'Teacher'),
       onSolutionTap: () => Get.toNamed(AppRoutes.teacherSolution),
       onQuizTap: () => Get.toNamed(AppRoutes.teacherQuiz),
     );
