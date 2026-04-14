@@ -9,6 +9,7 @@ class ProfileService extends GetxService {
   final FirebaseService _firebaseService = FirebaseService();
   final RxMap<String, ProfileModel> profiles = <String, ProfileModel>{}.obs;
   final RxBool isLoading = false.obs;
+  Future<void>? _loadProfilesFuture;
 
   ProfileModel profileFor(String role) {
     final key = role.toLowerCase();
@@ -18,6 +19,15 @@ class ProfileService extends GetxService {
   /// Loads the logged-in user's data from `users` collection first,
   /// then falls back to `profiles` collection for other roles.
   Future<void> loadProfiles() async {
+    final inFlight = _loadProfilesFuture;
+    if (inFlight != null) return inFlight;
+
+    final future = _loadProfilesInternal();
+    _loadProfilesFuture = future;
+    return future;
+  }
+
+  Future<void> _loadProfilesInternal() async {
     isLoading.value = true;
     try {
       _firebaseService.initialize();
@@ -50,6 +60,7 @@ class ProfileService extends GetxService {
       } catch (_) {}
     } finally {
       isLoading.value = false;
+      _loadProfilesFuture = null;
     }
   }
 

@@ -44,6 +44,9 @@ class FirebaseAuthProvider extends GetxController {
   final RxBool isLoading = RxBool(false);
   final RxString errorMessage = RxString('');
 
+  Map<String, dynamic>? _cachedCurrentUserData;
+  String? _cachedCurrentUserUid;
+
   @override
   void onInit() {
     super.onInit();
@@ -80,10 +83,9 @@ class FirebaseAuthProvider extends GetxController {
 
       final roleLower = role.toLowerCase();
       if (roleLower == 'principal' || roleLower == 'teacher') {
-        errorMessage.value =
-            roleLower == 'principal'
-                ? 'Principal self-signup disabled hai. Sirf existing principal login kar sakta hai.'
-                : 'Teacher self-signup disabled hai. Teacher account principal create kare ga.';
+        errorMessage.value = roleLower == 'principal'
+            ? 'Principal self-signup disabled hai. Sirf existing principal login kar sakta hai.'
+            : 'Teacher self-signup disabled hai. Teacher account principal create kare ga.';
         return false;
       }
       var resolvedName = name.trim();
@@ -141,10 +143,7 @@ class FirebaseAuthProvider extends GetxController {
         resolvedDateOfBirth = matchedProfile.dateOfBirth.trim();
       }
 
-      userCredential = await _firebaseService.signUpWithEmail(
-        email,
-        password,
-      );
+      userCredential = await _firebaseService.signUpWithEmail(email, password);
 
       if (userCredential != null) {
         // Save user data to Firestore
@@ -179,6 +178,23 @@ class FirebaseAuthProvider extends GetxController {
           );
         }
         currentUser.value = userCredential.user;
+        _cacheCurrentUserData({
+          'uid': userCredential.user!.uid,
+          'authUid': userCredential.user!.uid,
+          'email': email,
+          'name': resolvedName,
+          'role': role,
+          'phone': resolvedPhone,
+          'rollNumber': resolvedRollNumber,
+          'className': resolvedClassName,
+          'section': resolvedSection,
+          'subject': subject,
+          'programName': resolvedProgramName,
+          'admissionNo': resolvedAdmissionNo,
+          'dateOfBirth': resolvedDateOfBirth,
+          'linkedStudentProfileId': linkedStudentProfileId,
+          'imagePath': imagePath,
+        }, uid: userCredential.user!.uid);
         return true;
       }
       return false;
@@ -222,9 +238,8 @@ class FirebaseAuthProvider extends GetxController {
       if (userCredential != null) {
         final normalizedRole = (roleHint ?? '').trim().toLowerCase();
         if (normalizedRole == 'principal') {
-          final isTrustedPrincipal = await _firebaseService.isTrustedPrincipalUid(
-            userCredential.user!.uid,
-          );
+          final isTrustedPrincipal = await _firebaseService
+              .isTrustedPrincipalUid(userCredential.user!.uid);
           if (!isTrustedPrincipal) {
             await _firebaseService.signOut();
             currentUser.value = null;
@@ -247,6 +262,7 @@ class FirebaseAuthProvider extends GetxController {
           }
         }
         currentUser.value = userCredential.user;
+        await loadCurrentUserData(roleHint: roleHint, forceRefresh: true);
         return true;
       }
       return false;
@@ -258,22 +274,61 @@ class FirebaseAuthProvider extends GetxController {
     }
   }
 
-  Future<Map<String, dynamic>?> loadCurrentUserData() async {
+  Map<String, dynamic>? peekCurrentUserData({String? roleHint}) {
     final user = currentUser.value ?? _firebaseService.currentUser;
     if (user == null) return null;
-    final collection = await _firebaseService.findUserCollection(user.uid);
-    if (collection == null) return null;
+    if (_cachedCurrentUserUid != user.uid || _cachedCurrentUserData == null) {
+      return null;
+    }
 
-    final userData = await _firebaseService.getUserData(user.uid);
-    final role = (userData?['role'] as String? ?? '').trim().toLowerCase();
+    final cached = Map<String, dynamic>.from(_cachedCurrentUserData!);
+    final normalizedRoleHint = (roleHint ?? '').trim().toLowerCase();
+    final cachedRole = (cached['role'] as String? ?? '').trim().toLowerCase();
+    if (normalizedRoleHint.isNotEmpty &&
+        cachedRole.isNotEmpty &&
+        cachedRole != normalizedRoleHint) {
+      return null;
+    }
+    return cached;
+  }
+
+  Future<Map<String, dynamic>?> loadCurrentUserData({
+    String? roleHint,
+    bool forceRefresh = false,
+  }) async {
+    final user = currentUser.value ?? _firebaseService.currentUser;
+    if (user == null) {
+      _clearCurrentUserDataCache();
+      return null;
+    }
+
+    if (!forceRefresh) {
+      final cached = peekCurrentUserData(roleHint: roleHint);
+      if (cached != null) return cached;
+    }
+
+    final userData = await _firebaseService.getUserData(
+      user.uid,
+      roleHint: roleHint,
+    );
+    if (userData == null) return null;
+
+    final role = (userData['role'] as String? ?? '').trim().toLowerCase();
+    final collection = await _firebaseService.findUserCollection(
+      user.uid,
+      roleHint: roleHint,
+    );
     if (role == 'principal' &&
         collection != _firebaseService.collectionForRole('Principal')) {
+      _clearCurrentUserDataCache();
       return null;
     }
     if (role == 'teacher' &&
         collection != _firebaseService.collectionForRole('Teacher')) {
+      _clearCurrentUserDataCache();
       return null;
     }
+    _cacheCurrentUserData(userData, uid: user.uid);
     return userData;
   }
 
@@ -284,16 +339,19 @@ class FirebaseAuthProvider extends GetxController {
   }) async {
     try {
       // FCM topics se unsubscribe karo logout se pehle
-      if (role != null && Get.isRegistered<FcmService>()) {
-        await Get.find<FcmService>().unsubscribeAll(
-          role: role,
-          className: className,
-          section: section,
-        );
+      if (role != null) {
+        try {
+          await Get.find<FcmService>().unsubscribeAll(
+            role: role,
+            className: className,
+            section: section,
+          );
+        } catch (_) {}
       }
       await _firebaseService.signOut();
       currentUser.value = null;
       errorMessage('');
+      _clearCurrentUserDataCache();
     } catch (e) {
       errorMessage.value = e.toString();
     }
@@ -318,6 +376,22 @@ class FirebaseAuthProvider extends GetxController {
   }
 
   bool get isAuthenticated => currentUser.value != null;
+
+  void _cacheCurrentUserData(Map<String, dynamic>? userData, {String? uid}) {
+    final resolvedUid =
+        uid ?? currentUser.value?.uid ?? _firebaseService.currentUser?.uid;
+    if (resolvedUid == null || userData == null) {
+      _clearCurrentUserDataCache();
+      return;
+    }
+    _cachedCurrentUserUid = resolvedUid;
+    _cachedCurrentUserData = Map<String, dynamic>.from(userData);
+  }
+
+  void _clearCurrentUserDataCache() {
+    _cachedCurrentUserUid = null;
+    _cachedCurrentUserData = null;
+  }
 
   Future<String> resolveLoginIdentifier(
     String identifier, {
@@ -517,7 +591,8 @@ class FirebaseAuthProvider extends GetxController {
     StudentProfileModel profile,
   ) async {
     final namePart = _slugPart(profile.fullName, maxLength: 8);
-    final classPart = 'c${profile.className.trim()}${profile.section.trim().toLowerCase()}';
+    final classPart =
+        'c${profile.className.trim()}${profile.section.trim().toLowerCase()}';
     final programPart = _slugPart(profile.programName, maxLength: 4);
     final rollPart = _slugPart(profile.rollNumber, maxLength: 4);
 
@@ -565,7 +640,8 @@ class FirebaseAuthProvider extends GetxController {
     TeacherProfileModel profile,
   ) async {
     final namePart = _slugPart(profile.fullName, maxLength: 8);
-    final classPart = 't${profile.className.trim()}${profile.section.trim().toLowerCase()}';
+    final classPart =
+        't${profile.className.trim()}${profile.section.trim().toLowerCase()}';
     final subjectPart = _slugPart(profile.subject, maxLength: 4);
     final employeePart = _slugPart(profile.employeeId, maxLength: 4);
 
@@ -610,10 +686,10 @@ class FirebaseAuthProvider extends GetxController {
   }
 
   String _slugPart(String value, {required int maxLength}) {
-    final normalized = value
-        .trim()
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9]+'), '');
+    final normalized = value.trim().toLowerCase().replaceAll(
+      RegExp(r'[^a-z0-9]+'),
+      '',
+    );
     if (normalized.isEmpty) return '';
     return normalized.length <= maxLength
         ? normalized

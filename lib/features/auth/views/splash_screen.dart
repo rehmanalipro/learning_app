@@ -83,7 +83,7 @@ class _SplashScreenState extends State<SplashScreen>
     _logoCtrl.forward().then((_) => _textCtrl.forward());
 
     if (widget.autoNavigate && !Get.testMode) {
-      _navTimer = Timer(const Duration(seconds: 4), () {
+      _navTimer = Timer(const Duration(milliseconds: 1800), () {
         if (mounted) _navigateNext();
       });
     }
@@ -104,14 +104,19 @@ class _SplashScreenState extends State<SplashScreen>
       final authProvider = Get.find<FirebaseAuthProvider>();
       final appThemeProvider = Get.find<AppThemeProvider>();
 
-      User? firebaseUser;
-      try {
-        firebaseUser = await authProvider.firebaseService.auth
-            .authStateChanges()
-            .first
-            .timeout(const Duration(seconds: 3));
-      } catch (_) {
-        firebaseUser = null;
+      User? firebaseUser =
+          authProvider.currentUser.value ??
+          authProvider.firebaseService.currentUser;
+
+      if (firebaseUser == null) {
+        try {
+          firebaseUser = await authProvider.firebaseService.auth
+              .authStateChanges()
+              .first
+              .timeout(const Duration(seconds: 2));
+        } catch (_) {
+          firebaseUser = null;
+        }
       }
 
       if (!mounted) return;
@@ -120,7 +125,9 @@ class _SplashScreenState extends State<SplashScreen>
         return;
       }
 
-      final userData = await authProvider.loadCurrentUserData();
+      final userData =
+          authProvider.peekCurrentUserData() ??
+          await authProvider.loadCurrentUserData();
       final role = (userData?['role'] as String? ?? '').trim();
 
       if (!mounted) return;
@@ -132,36 +139,46 @@ class _SplashScreenState extends State<SplashScreen>
 
       appThemeProvider.setCurrentSession(role: role, userId: firebaseUser.uid);
       Get.find<ClassBindingService>().loadFromUserData(userData!);
-
-      try {
-        if (Get.isRegistered<ProfileProvider>()) {
-          await Get.find<ProfileProvider>().loadProfiles();
-        }
-      } catch (_) {}
-
-      try {
-        if (Get.isRegistered<FcmService>()) {
-          await Get.find<FcmService>().subscribeToRoleTopics(
-            role: role,
-            className: userData['className'] as String?,
-            section: userData['section'] as String?,
-          );
-        }
-      } catch (_) {}
-
-      if (!mounted) return;
       final route = role.toLowerCase() == 'teacher'
           ? AppRoutes.teacher
           : role.toLowerCase() == 'principal'
           ? AppRoutes.principal
           : AppRoutes.student;
       Get.offAllNamed(route, arguments: role);
+
+      unawaited(
+        _warmUpSignedInSession(
+          role: role,
+          className: userData['className'] as String?,
+          section: userData['section'] as String?,
+        ),
+      );
     } catch (_) {
       try {
         await Get.find<FirebaseAuthProvider>().signOut();
       } catch (_) {}
       if (mounted) Get.offAllNamed(AppRoutes.choose);
     }
+  }
+
+  Future<void> _warmUpSignedInSession({
+    required String role,
+    String? className,
+    String? section,
+  }) async {
+    try {
+      if (Get.isRegistered<ProfileProvider>()) {
+        await Get.find<ProfileProvider>().loadProfiles();
+      }
+    } catch (_) {}
+
+    try {
+      await Get.find<FcmService>().subscribeToRoleTopics(
+        role: role,
+        className: className,
+        section: section,
+      );
+    } catch (_) {}
   }
 
   @override

@@ -9,6 +9,7 @@ class ExamScheduleService extends GetxService {
   final FirestoreCollectionService _store = FirestoreCollectionService();
   final RxList<ExamScheduleModel> schedules = <ExamScheduleModel>[].obs;
   final RxBool isLoading = false.obs;
+  Future<void>? _loadSchedulesFuture;
 
   final Map<String, List<String>> classSubjects = const {
     '1': ['English', 'Mathematics', 'General Knowledge'],
@@ -23,6 +24,15 @@ class ExamScheduleService extends GetxService {
   }
 
   Future<void> loadSchedules() async {
+    final inFlight = _loadSchedulesFuture;
+    if (inFlight != null) return inFlight;
+
+    final future = _loadSchedulesInternal();
+    _loadSchedulesFuture = future;
+    return future;
+  }
+
+  Future<void> _loadSchedulesInternal() async {
     isLoading.value = true;
     try {
       final fetched = await _store.getCollection<ExamScheduleModel>(
@@ -32,10 +42,12 @@ class ExamScheduleService extends GetxService {
       if (fetched.isEmpty && schedules.isEmpty) {
         schedules.clear();
       } else {
-        schedules.value = fetched..sort((a, b) => a.examDate.compareTo(b.examDate));
+        schedules.value = fetched
+          ..sort((a, b) => a.examDate.compareTo(b.examDate));
       }
     } finally {
       isLoading.value = false;
+      _loadSchedulesFuture = null;
     }
   }
 
@@ -50,7 +62,8 @@ class ExamScheduleService extends GetxService {
       final sameClass = item.className.trim() == className.trim();
       final sameSection =
           item.section.trim().toUpperCase() == section.trim().toUpperCase();
-      final sameDate = item.examDate.year == examDate.year &&
+      final sameDate =
+          item.examDate.year == examDate.year &&
           item.examDate.month == examDate.month &&
           item.examDate.day == examDate.day;
       final overlap =

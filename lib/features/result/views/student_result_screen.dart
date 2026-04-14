@@ -19,7 +19,7 @@ class StudentResultScreen extends StatefulWidget {
 }
 
 class _StudentResultScreenState extends State<StudentResultScreen> {
-  final ResultProvider _provider = Get.put(ResultProvider());
+  final ResultProvider _provider = Get.find<ResultProvider>();
   final ProfileProvider _profileProvider = Get.find<ProfileProvider>();
   final FirebaseAuthProvider _authProvider = Get.find<FirebaseAuthProvider>();
   final RxString _studentId = ''.obs;

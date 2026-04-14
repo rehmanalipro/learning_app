@@ -72,14 +72,14 @@ Future<void> bootstrapApp({
   }
 
   if (!Get.isRegistered<FcmService>()) {
-    Get.put(FcmService(), permanent: true);
+    Get.lazyPut<FcmService>(() => FcmService(), fenix: true);
   }
 
   if (!Get.isRegistered<OtpService>()) {
-    Get.put(OtpService(), permanent: true);
+    Get.lazyPut<OtpService>(() => OtpService(), fenix: true);
   }
   if (!Get.isRegistered<ChatbotService>()) {
-    Get.put(ChatbotService(), permanent: true);
+    Get.lazyPut<ChatbotService>(() => ChatbotService(), fenix: true);
   }
 
   if (!Get.isRegistered<ClassBindingService>()) {
@@ -96,31 +96,43 @@ Future<void> bootstrapApp({
     Get.put(StudentProfileService(), permanent: true);
   }
   if (!Get.isRegistered<StudentProfileProvider>()) {
-    Get.put(StudentProfileProvider(), permanent: true);
+    Get.lazyPut<StudentProfileProvider>(
+      () => StudentProfileProvider(),
+      fenix: true,
+    );
   }
   if (!Get.isRegistered<AttendanceProvider>()) {
-    Get.put(AttendanceProvider(), permanent: true);
+    Get.lazyPut<AttendanceProvider>(() => AttendanceProvider(), fenix: true);
   }
   if (!Get.isRegistered<AttendanceController>()) {
-    Get.put(AttendanceController(), permanent: true);
+    Get.lazyPut<AttendanceController>(
+      () => AttendanceController(),
+      fenix: true,
+    );
   }
   if (!Get.isRegistered<ExamScheduleService>()) {
     Get.put(ExamScheduleService(), permanent: true);
   }
   if (!Get.isRegistered<ExamScheduleProvider>()) {
-    Get.put(ExamScheduleProvider(), permanent: true);
+    Get.lazyPut<ExamScheduleProvider>(
+      () => ExamScheduleProvider(),
+      fenix: true,
+    );
   }
   if (!Get.isRegistered<ExamScheduleController>()) {
-    Get.put(ExamScheduleController(), permanent: true);
+    Get.lazyPut<ExamScheduleController>(
+      () => ExamScheduleController(),
+      fenix: true,
+    );
   }
   if (!Get.isRegistered<HomeworkService>()) {
     Get.put(HomeworkService(), permanent: true);
   }
   if (!Get.isRegistered<HomeworkProvider>()) {
-    Get.put(HomeworkProvider(), permanent: true);
+    Get.lazyPut<HomeworkProvider>(() => HomeworkProvider(), fenix: true);
   }
   if (!Get.isRegistered<HomeworkController>()) {
-    Get.put(HomeworkController(), permanent: true);
+    Get.lazyPut<HomeworkController>(() => HomeworkController(), fenix: true);
   }
   if (!Get.isRegistered<UserService>()) {
     Get.put(UserService(), permanent: true);
@@ -138,52 +150,55 @@ Future<void> bootstrapApp({
     Get.put(ProfileService(), permanent: true);
   }
   if (!Get.isRegistered<ProfileProvider>()) {
-    Get.put(ProfileProvider(), permanent: true);
+    Get.lazyPut<ProfileProvider>(() => ProfileProvider(), fenix: true);
   }
   if (!Get.isRegistered<ProfileController>()) {
-    Get.put(ProfileController(), permanent: true);
+    Get.lazyPut<ProfileController>(() => ProfileController(), fenix: true);
   }
   if (!Get.isRegistered<QuizService>()) {
     Get.put(QuizService(), permanent: true);
   }
   if (!Get.isRegistered<QuizProvider>()) {
-    Get.put(QuizProvider(), permanent: true);
+    Get.lazyPut<QuizProvider>(() => QuizProvider(), fenix: true);
   }
   if (!Get.isRegistered<ResultService>()) {
     Get.put(ResultService(), permanent: true);
   }
   if (!Get.isRegistered<ResultProvider>()) {
-    Get.put(ResultProvider(), permanent: true);
+    Get.lazyPut<ResultProvider>(() => ResultProvider(), fenix: true);
   }
   if (!Get.isRegistered<StudentService>()) {
     Get.put(StudentService(), permanent: true);
   }
   if (!Get.isRegistered<StudentProvider>()) {
-    Get.put(StudentProvider(), permanent: true);
+    Get.lazyPut<StudentProvider>(() => StudentProvider(), fenix: true);
   }
   if (!Get.isRegistered<StudentController>()) {
-    Get.put(StudentController(), permanent: true);
+    Get.lazyPut<StudentController>(() => StudentController(), fenix: true);
   }
   if (!Get.isRegistered<TeacherService>()) {
     Get.put(TeacherService(), permanent: true);
   }
   if (!Get.isRegistered<TeacherProfileProvider>()) {
-    Get.put(TeacherProfileProvider(), permanent: true);
+    Get.lazyPut<TeacherProfileProvider>(
+      () => TeacherProfileProvider(),
+      fenix: true,
+    );
   }
   if (!Get.isRegistered<TeacherProvider>()) {
-    Get.put(TeacherProvider(), permanent: true);
+    Get.lazyPut<TeacherProvider>(() => TeacherProvider(), fenix: true);
   }
   if (!Get.isRegistered<TeacherController>()) {
-    Get.put(TeacherController(), permanent: true);
+    Get.lazyPut<TeacherController>(() => TeacherController(), fenix: true);
   }
   if (!Get.isRegistered<SchoolDataService>()) {
     Get.put(SchoolDataService(), permanent: true);
   }
   if (!Get.isRegistered<SchoolDataProvider>()) {
-    Get.put(SchoolDataProvider(), permanent: true);
+    Get.lazyPut<SchoolDataProvider>(() => SchoolDataProvider(), fenix: true);
   }
   if (!Get.isRegistered<SchoolController>()) {
-    Get.put(SchoolController(), permanent: true);
+    Get.lazyPut<SchoolController>(() => SchoolController(), fenix: true);
   }
   if (!Get.isRegistered<AppThemeProvider>()) {
     final appThemeProvider = AppThemeProvider();

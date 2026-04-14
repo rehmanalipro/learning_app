@@ -16,16 +16,24 @@ class HomeworkService extends GetxService {
   final RxList<HomeworkSubmissionModel> submissions =
       <HomeworkSubmissionModel>[].obs;
   final RxBool isLoading = false.obs;
+  Future<void>? _loadAllFuture;
 
   Future<void> loadAll() async {
+    final inFlight = _loadAllFuture;
+    if (inFlight != null) return inFlight;
+
+    final future = _loadAllInternal();
+    _loadAllFuture = future;
+    return future;
+  }
+
+  Future<void> _loadAllInternal() async {
     isLoading.value = true;
     try {
-      await Future.wait([
-        _loadAssignments(),
-        _loadSubmissions(),
-      ]);
+      await Future.wait([_loadAssignments(), _loadSubmissions()]);
     } finally {
       isLoading.value = false;
+      _loadAllFuture = null;
     }
   }
 
@@ -41,15 +49,16 @@ class HomeworkService extends GetxService {
         path: _assignmentsCollection,
         fromMap: HomeworkAssignmentModel.fromMap,
       );
-      final filtered = fetched
-          .where(
-            (item) =>
-                item.className.trim() == className.trim() &&
-                item.section.trim().toUpperCase() ==
-                    section.trim().toUpperCase(),
-          )
-          .toList(growable: false)
-        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      final filtered =
+          fetched
+              .where(
+                (item) =>
+                    item.className.trim() == className.trim() &&
+                    item.section.trim().toUpperCase() ==
+                        section.trim().toUpperCase(),
+              )
+              .toList(growable: false)
+            ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
       assignments.value = filtered;
       _syncSolutionsFromAssignments();
     } finally {
@@ -67,7 +76,8 @@ class HomeworkService extends GetxService {
       assignments.clear();
       solutions.clear();
     } else {
-      assignments.value = fetched..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      assignments.value = fetched
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
       _syncSolutionsFromAssignments();
     }
   }
@@ -82,27 +92,28 @@ class HomeworkService extends GetxService {
   }
 
   void _syncSolutionsFromAssignments() {
-    final mapped = assignments
-        .where((item) => (item.solutionTitle ?? '').trim().isNotEmpty)
-        .map(
-          (item) => HomeworkSolutionModel(
-            id: 'sol-${item.id}',
-            assignmentId: item.id,
-            className: item.className,
-            section: item.section,
-            subject: item.subject,
-            teacherName: item.teacherName,
-            title: item.solutionTitle ?? '',
-            description: item.solutionDescription ?? '',
-            pdfName: item.solutionPdfName ?? '',
-            pdfPath: item.solutionPdfPath,
-            sendToWholeClass: item.sendSolutionToWholeClass,
-            targetStudentNames: item.solutionTargetStudentNames,
-            createdAt: item.solutionCreatedAt ?? item.createdAt,
-          ),
-        )
-        .toList(growable: false)
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final mapped =
+        assignments
+            .where((item) => (item.solutionTitle ?? '').trim().isNotEmpty)
+            .map(
+              (item) => HomeworkSolutionModel(
+                id: 'sol-${item.id}',
+                assignmentId: item.id,
+                className: item.className,
+                section: item.section,
+                subject: item.subject,
+                teacherName: item.teacherName,
+                title: item.solutionTitle ?? '',
+                description: item.solutionDescription ?? '',
+                pdfName: item.solutionPdfName ?? '',
+                pdfPath: item.solutionPdfPath,
+                sendToWholeClass: item.sendSolutionToWholeClass,
+                targetStudentNames: item.solutionTargetStudentNames,
+                createdAt: item.solutionCreatedAt ?? item.createdAt,
+              ),
+            )
+            .toList(growable: false)
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     solutions.value = mapped;
   }
 

@@ -4,7 +4,6 @@ import 'package:get/get.dart';
 import '../../../core/services/class_binding_service.dart';
 import '../../../core/services/class_roster_service.dart';
 import '../../../core/theme/app_theme_helper.dart';
-import '../../../shared/widgets/animated_page_wrapper.dart';
 import '../../../shared/widgets/app_refresh_scope.dart';
 import '../models/attendance_entry_model.dart';
 import '../providers/attendance_provider.dart';
@@ -131,16 +130,21 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen>
     final hour = date.hour == 0
         ? 12
         : date.hour > 12
-            ? date.hour - 12
-            : date.hour;
+        ? date.hour - 12
+        : date.hour;
     final minute = date.minute.toString().padLeft(2, '0');
     final suffix = date.hour >= 12 ? 'PM' : 'AM';
     return '$hour:$minute $suffix';
   }
 
   bool _isWithinRange(DateTime date) {
-    final itemDate =
-        DateTime(date.year, date.month, date.day, date.hour, date.minute);
+    final itemDate = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      date.hour,
+      date.minute,
+    );
     return !itemDate.isBefore(_startDate) && !itemDate.isAfter(_endDate);
   }
 
@@ -152,10 +156,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen>
       appBar: _buildAppBar(palette),
       body: TabBarView(
         controller: _tabController,
-        children: [
-          _buildMarkTab(palette),
-          _buildReviewTab(palette),
-        ],
+        children: [_buildMarkTab(palette), _buildReviewTab(palette)],
       ),
     );
   }
@@ -209,7 +210,6 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen>
     );
   }
 
-
   Widget _buildMarkTab(dynamic palette) {
     return Obx(() {
       if (_rosterService.isLoading.value) {
@@ -234,18 +234,20 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen>
             child: ListView.separated(
               padding: const EdgeInsets.symmetric(vertical: 8),
               itemCount: roster.length,
-              separatorBuilder: (_, __) =>
+              separatorBuilder: (_, _) =>
                   const Divider(height: 1, thickness: 0.8),
               itemBuilder: (context, index) {
                 final student = roster[index];
                 final uid = student['uid'] as String? ?? '';
                 final isPresent =
                     (_statusMap[uid] ?? AttendanceStatus.present) ==
-                        AttendanceStatus.present;
+                    AttendanceStatus.present;
                 return Container(
                   color: palette.surface,
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 12),
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   child: Row(
                     children: [
                       Expanded(
@@ -255,14 +257,17 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen>
                             Text(
                               student['name'] as String? ?? '',
                               style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  color: palette.text),
+                                fontWeight: FontWeight.w600,
+                                color: palette.text,
+                              ),
                             ),
                             const SizedBox(height: 2),
                             Text(
                               'Roll ${student['rollNumber'] ?? ''}',
                               style: TextStyle(
-                                  fontSize: 12, color: palette.subtext),
+                                fontSize: 12,
+                                color: palette.subtext,
+                              ),
                             ),
                           ],
                         ),
@@ -292,7 +297,8 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen>
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14)),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
                 child: _isSubmitting
                     ? const SizedBox(
@@ -303,7 +309,9 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen>
                     : const Text(
                         'Submit Attendance',
                         style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w600),
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
               ),
             ),
@@ -318,15 +326,20 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen>
     return AppRefreshScope(
       onRefresh: _attendanceProvider.loadEntries,
       child: Obx(() {
-        final filteredEntries = entries.where((entry) {
-          final classMatch =
-              _selectedClass == 'All' || entry.className == _selectedClass;
-          final sectionMatch =
-              _selectedSection == 'All' || entry.section == _selectedSection;
-          final dateMatch = _isWithinRange(entry.submittedAt);
-          return classMatch && sectionMatch && dateMatch;
-        }).toList(growable: false)
-          ..sort((a, b) => b.submittedAt.compareTo(a.submittedAt));
+        final filteredEntries =
+            entries
+                .where((entry) {
+                  final classMatch =
+                      _selectedClass == 'All' ||
+                      entry.className == _selectedClass;
+                  final sectionMatch =
+                      _selectedSection == 'All' ||
+                      entry.section == _selectedSection;
+                  final dateMatch = _isWithinRange(entry.submittedAt);
+                  return classMatch && sectionMatch && dateMatch;
+                })
+                .toList(growable: false)
+              ..sort((a, b) => b.submittedAt.compareTo(a.submittedAt));
 
         final presentCount = filteredEntries
             .where((e) => e.status == AttendanceStatus.present)
@@ -356,12 +369,16 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen>
                               dropdownColor: palette.surface,
                               isExpanded: true,
                               items: _classes
-                                  .map((item) => DropdownMenuItem(
-                                        value: item,
-                                        child: Text(item == 'All'
+                                  .map(
+                                    (item) => DropdownMenuItem(
+                                      value: item,
+                                      child: Text(
+                                        item == 'All'
                                             ? 'All Classes'
-                                            : 'Class $item'),
-                                      ))
+                                            : 'Class $item',
+                                      ),
+                                    ),
+                                  )
                                   .toList(growable: false),
                               onChanged: (value) {
                                 if (value == null) return;
@@ -381,10 +398,12 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen>
                               dropdownColor: palette.surface,
                               isExpanded: true,
                               items: _sections
-                                  .map((item) => DropdownMenuItem(
-                                        value: item,
-                                        child: Text(item),
-                                      ))
+                                  .map(
+                                    (item) => DropdownMenuItem(
+                                      value: item,
+                                      child: Text(item),
+                                    ),
+                                  )
                                   .toList(growable: false),
                               onChanged: (value) {
                                 if (value == null) return;
@@ -405,7 +424,9 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen>
                           borderRadius: BorderRadius.circular(14),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 14),
+                              horizontal: 14,
+                              vertical: 14,
+                            ),
                             decoration: BoxDecoration(
                               color: palette.surface,
                               borderRadius: BorderRadius.circular(14),
@@ -413,14 +434,21 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('From',
-                                    style: TextStyle(
-                                        color: palette.subtext, fontSize: 11)),
+                                Text(
+                                  'From',
+                                  style: TextStyle(
+                                    color: palette.subtext,
+                                    fontSize: 11,
+                                  ),
+                                ),
                                 const SizedBox(height: 4),
-                                Text(_dateLabel(_startDate),
-                                    style: TextStyle(
-                                        color: palette.text,
-                                        fontWeight: FontWeight.w600)),
+                                Text(
+                                  _dateLabel(_startDate),
+                                  style: TextStyle(
+                                    color: palette.text,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -433,7 +461,9 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen>
                           borderRadius: BorderRadius.circular(14),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 14),
+                              horizontal: 14,
+                              vertical: 14,
+                            ),
                             decoration: BoxDecoration(
                               color: palette.surface,
                               borderRadius: BorderRadius.circular(14),
@@ -441,14 +471,21 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('To',
-                                    style: TextStyle(
-                                        color: palette.subtext, fontSize: 11)),
+                                Text(
+                                  'To',
+                                  style: TextStyle(
+                                    color: palette.subtext,
+                                    fontSize: 11,
+                                  ),
+                                ),
                                 const SizedBox(height: 4),
-                                Text(_dateLabel(_endDate),
-                                    style: TextStyle(
-                                        color: palette.text,
-                                        fontWeight: FontWeight.w600)),
+                                Text(
+                                  _dateLabel(_endDate),
+                                  style: TextStyle(
+                                    color: palette.text,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -466,23 +503,26 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen>
                 children: [
                   Expanded(
                     child: _SummaryCard(
-                        title: 'Present',
-                        value: '$presentCount',
-                        color: const Color(0xFF15803D)),
+                      title: 'Present',
+                      value: '$presentCount',
+                      color: const Color(0xFF15803D),
+                    ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: _SummaryCard(
-                        title: 'Absent',
-                        value: '$absentCount',
-                        color: const Color(0xFFB91C1C)),
+                      title: 'Absent',
+                      value: '$absentCount',
+                      color: const Color(0xFFB91C1C),
+                    ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: _SummaryCard(
-                        title: 'Pending',
-                        value: '$pendingCount',
-                        color: const Color(0xFFB45309)),
+                      title: 'Pending',
+                      value: '$pendingCount',
+                      color: const Color(0xFFB45309),
+                    ),
                   ),
                 ],
               ),
@@ -491,34 +531,49 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen>
               color: palette.isDark
                   ? const Color(0xFF1E293B)
                   : const Color(0xFFDBE6FF),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               child: Row(
                 children: [
                   Expanded(
                     flex: 5,
-                    child: Text('Student / Roll',
-                        style: TextStyle(
-                            fontWeight: FontWeight.w700, color: palette.text)),
+                    child: Text(
+                      'Student / Roll',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: palette.text,
+                      ),
+                    ),
                   ),
                   Expanded(
                     flex: 3,
-                    child: Text('Date & Time',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            fontWeight: FontWeight.w700, color: palette.text)),
+                    child: Text(
+                      'Date & Time',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: palette.text,
+                      ),
+                    ),
                   ),
                   Expanded(
-                    child: Text('P',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            fontWeight: FontWeight.w700, color: palette.text)),
+                    child: Text(
+                      'P',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: palette.text,
+                      ),
+                    ),
                   ),
                   Expanded(
-                    child: Text('A',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            fontWeight: FontWeight.w700, color: palette.text)),
+                    child: Text(
+                      'A',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: palette.text,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -537,17 +592,20 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen>
                     )
                   : ListView.separated(
                       physics: const AlwaysScrollableScrollPhysics(
-                          parent: BouncingScrollPhysics()),
+                        parent: BouncingScrollPhysics(),
+                      ),
                       padding: const EdgeInsets.only(bottom: 16),
                       itemCount: filteredEntries.length,
-                      separatorBuilder: (_, __) =>
+                      separatorBuilder: (_, _) =>
                           const Divider(height: 1, thickness: 0.8),
                       itemBuilder: (context, index) {
                         final entry = filteredEntries[index];
                         return Container(
                           color: palette.surface,
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 10),
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
                           child: Row(
                             children: [
                               Expanded(
@@ -555,63 +613,72 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen>
                                 child: Row(
                                   children: [
                                     Expanded(
-                                      child: Text(entry.studentName,
-                                          style: TextStyle(
-                                              fontWeight: FontWeight.w600,
-                                              color: palette.text)),
+                                      child: Text(
+                                        entry.studentName,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          color: palette.text,
+                                        ),
+                                      ),
                                     ),
                                     const SizedBox(width: 8),
-                                    Text('Roll ${entry.rollNumber}',
-                                        style: TextStyle(
-                                            fontSize: 13,
-                                            color: palette.text,
-                                            fontWeight: FontWeight.w500)),
+                                    Text(
+                                      'Roll ${entry.rollNumber}',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: palette.text,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
                               Expanded(
                                 flex: 3,
                                 child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.center,
                                   children: [
-                                    Text(_dateLabel(entry.submittedAt),
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                            fontSize: 12,
-                                            color: palette.text,
-                                            fontWeight: FontWeight.w600)),
+                                    Text(
+                                      _dateLabel(entry.submittedAt),
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: palette.text,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
                                     const SizedBox(height: 2),
-                                    Text(_timeLabel(entry.submittedAt),
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                            fontSize: 12,
-                                            color: palette.subtext)),
+                                    Text(
+                                      _timeLabel(entry.submittedAt),
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: palette.subtext,
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
                               Expanded(
                                 child: Checkbox(
-                                  value: entry.status ==
-                                      AttendanceStatus.present,
-                                  onChanged: (_) =>
-                                      _attendanceProvider
-                                          .updateAttendanceStatus(
-                                    entry.id,
-                                    AttendanceStatus.present,
-                                  ),
+                                  value:
+                                      entry.status == AttendanceStatus.present,
+                                  onChanged: (_) => _attendanceProvider
+                                      .updateAttendanceStatus(
+                                        entry.id,
+                                        AttendanceStatus.present,
+                                      ),
                                 ),
                               ),
                               Expanded(
                                 child: Checkbox(
-                                  value: entry.status ==
-                                      AttendanceStatus.absent,
-                                  onChanged: (_) =>
-                                      _attendanceProvider
-                                          .updateAttendanceStatus(
-                                    entry.id,
-                                    AttendanceStatus.absent,
-                                  ),
+                                  value:
+                                      entry.status == AttendanceStatus.absent,
+                                  onChanged: (_) => _attendanceProvider
+                                      .updateAttendanceStatus(
+                                        entry.id,
+                                        AttendanceStatus.absent,
+                                      ),
                                 ),
                               ),
                             ],
@@ -715,8 +782,7 @@ class _FilterBox extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label,
-              style: TextStyle(fontSize: 11, color: palette.subtext)),
+          Text(label, style: TextStyle(fontSize: 11, color: palette.subtext)),
           child,
         ],
       ),
@@ -746,13 +812,23 @@ class _SummaryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title,
-              style: TextStyle(
-                  color: color, fontSize: 12, fontWeight: FontWeight.w600)),
+          Text(
+            title,
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           const SizedBox(height: 6),
-          Text(value,
-              style: TextStyle(
-                  color: color, fontSize: 18, fontWeight: FontWeight.w700)),
+          Text(
+            value,
+            style: TextStyle(
+              color: color,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
         ],
       ),
     );

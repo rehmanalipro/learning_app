@@ -8,8 +8,18 @@ class ResultService extends GetxService {
   final FirestoreCollectionService _store = FirestoreCollectionService();
   final RxList<ResultModel> results = <ResultModel>[].obs;
   final RxBool isLoading = false.obs;
+  Future<List<ResultModel>>? _resultsLoadFuture;
 
   Future<List<ResultModel>> getAll() async {
+    final inFlight = _resultsLoadFuture;
+    if (inFlight != null) return inFlight;
+
+    final future = _getAllInternal();
+    _resultsLoadFuture = future;
+    return future;
+  }
+
+  Future<List<ResultModel>> _getAllInternal() async {
     isLoading.value = true;
     try {
       final fetched = await _store.getCollection<ResultModel>(
@@ -20,6 +30,7 @@ class ResultService extends GetxService {
       return fetched;
     } finally {
       isLoading.value = false;
+      _resultsLoadFuture = null;
     }
   }
 

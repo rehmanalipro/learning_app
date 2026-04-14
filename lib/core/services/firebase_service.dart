@@ -141,7 +141,10 @@ class FirebaseService {
         'authUid': uid,
         'accountDocId': resolvedDocumentId,
       };
-      await firestore.collection(collection).doc(resolvedDocumentId).set(payload);
+      await firestore
+          .collection(collection)
+          .doc(resolvedDocumentId)
+          .set(payload);
       await _upsertAuthIndex(
         uid: uid,
         collection: collection,
@@ -180,8 +183,11 @@ class FirebaseService {
     return firestore.collection('users').doc(uid).snapshots();
   }
 
-  Future<Map<String, dynamic>?> getUserData(String uid) async {
-    final documentRef = await _tryFindUserDocumentRef(uid);
+  Future<Map<String, dynamic>?> getUserData(
+    String uid, {
+    String? roleHint,
+  }) async {
+    final documentRef = await _tryFindUserDocumentRef(uid, roleHint: roleHint);
     if (documentRef == null) return null;
     final snapshot = await firestore
         .collection(documentRef.collection)
@@ -191,13 +197,17 @@ class FirebaseService {
   }
 
   Future<String?> findUserCollection(String uid, {String? roleHint}) {
-    return _tryFindUserDocumentRef(uid, roleHint: roleHint).then(
-      (ref) => ref?.collection,
-    );
+    return _tryFindUserDocumentRef(
+      uid,
+      roleHint: roleHint,
+    ).then((ref) => ref?.collection);
   }
 
   Future<bool> isTrustedPrincipalUid(String uid) async {
-    final snapshot = await firestore.collection(_principalsCollection).doc(uid).get();
+    final snapshot = await firestore
+        .collection(_principalsCollection)
+        .doc(uid)
+        .get();
     return snapshot.exists;
   }
 
@@ -268,7 +278,10 @@ class FirebaseService {
   }
 
   Future<_UserDocumentRef?> _tryGetIndexedUserDocumentRef(String uid) async {
-    final snapshot = await firestore.collection(_authIndexCollection).doc(uid).get();
+    final snapshot = await firestore
+        .collection(_authIndexCollection)
+        .doc(uid)
+        .get();
     final data = snapshot.data();
     if (!snapshot.exists || data == null) return null;
 
@@ -319,8 +332,5 @@ class _UserDocumentRef {
   final String collection;
   final String documentId;
 
-  const _UserDocumentRef({
-    required this.collection,
-    required this.documentId,
-  });
+  const _UserDocumentRef({required this.collection, required this.documentId});
 }

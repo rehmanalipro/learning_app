@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:mailer/mailer.dart';
 import 'package:mailer/smtp_server.dart';
 
@@ -7,7 +9,7 @@ class EmailService {
   // Your Gmail credentials
   static const String _username = 'rehmanali.pk60@gmail.com';
   static const String _password = 'ibohbtlvlwjziphw'; // App password
-  
+
   /// Send OTP email
   static Future<bool> sendOtpEmail({
     required String toEmail,
@@ -17,7 +19,7 @@ class EmailService {
     try {
       // Configure Gmail SMTP
       final smtpServer = gmail(_username, _password);
-      
+
       // Create email message
       final message = Message()
         ..from = Address(_username, 'School Management System')
@@ -26,18 +28,17 @@ class EmailService {
             ? 'Password Reset - School Management System'
             : 'Email Verification - School Management System'
         ..html = _buildOtpEmailHtml(otp, mode);
-      
+
       // Send email
       final sendReport = await send(message, smtpServer);
-      print('✅ Email sent: ${sendReport.toString()}');
+      developer.log('Email sent: $sendReport', name: 'EmailService');
       return true;
-      
     } catch (e) {
-      print('❌ Email sending failed: $e');
+      developer.log('Email sending failed', name: 'EmailService', error: e);
       return false;
     }
   }
-  
+
   /// Send credentials email (for student/teacher account creation)
   static Future<bool> sendCredentialsEmail({
     required String toEmail,
@@ -48,7 +49,7 @@ class EmailService {
   }) async {
     try {
       final smtpServer = gmail(_username, _password);
-      
+
       final message = Message()
         ..from = Address(_username, 'School Management System')
         ..recipients.add(toEmail)
@@ -59,17 +60,19 @@ class EmailService {
           password: password,
           role: role,
         );
-      
+
       final sendReport = await send(message, smtpServer);
-      print('✅ Credentials email sent: ${sendReport.toString()}');
+      developer.log(
+        'Credentials email sent: $sendReport',
+        name: 'EmailService',
+      );
       return true;
-      
     } catch (e) {
-      print('❌ Credentials email failed: $e');
+      developer.log('Credentials email failed', name: 'EmailService', error: e);
       return false;
     }
   }
-  
+
   /// Build OTP email HTML
   static String _buildOtpEmailHtml(String otp, String mode) {
     return '''
@@ -83,6 +86,7 @@ class EmailService {
             padding: 20px; 
             margin: 0;
           }
+          
           .container { 
             max-width: 600px; 
             margin: 0 auto; 
@@ -140,7 +144,7 @@ class EmailService {
       <body>
         <div class="container">
           <div class="header">
-            <h1>🔐 Verification Code</h1>
+            <h1>Verification Code</h1>
           </div>
           
           <p class="info-text">Your verification code is:</p>
@@ -154,7 +158,7 @@ class EmailService {
           </p>
           
           <div class="warning">
-            <strong>⏰ Important:</strong> This code will expire in <strong>10 minutes</strong>.
+            <strong>Important:</strong> This code will expire in <strong>10 minutes</strong>.
           </div>
           
           <p class="info-text">
@@ -165,7 +169,7 @@ class EmailService {
             <p><strong>School Management System</strong></p>
             <p>This is an automated email, please do not reply.</p>
             <p style="margin-top: 10px; color: #999;">
-              © ${DateTime.now().year} School Management System. All rights reserved.
+              Copyright ${DateTime.now().year} School Management System. All rights reserved.
             </p>
           </div>
         </div>
@@ -173,7 +177,7 @@ class EmailService {
       </html>
     ''';
   }
-  
+
   /// Build credentials email HTML
   static String _buildCredentialsEmailHtml({
     required String userName,
@@ -242,7 +246,7 @@ class EmailService {
       <body>
         <div class="container">
           <div class="header">
-            <h1>🎓 Welcome to School Management System</h1>
+            <h1>Welcome to School Management System</h1>
           </div>
           
           <p>Dear <strong>$userName</strong>,</p>
@@ -264,7 +268,7 @@ class EmailService {
             </div>
           </div>
           
-          <p><strong>⚠️ Important:</strong></p>
+          <p><strong>Important:</strong></p>
           <ul>
             <li>Keep these credentials secure</li>
             <li>Change your password after first login</li>

@@ -17,9 +17,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
     with SingleTickerProviderStateMixin {
   final FirebaseAuthProvider _authProvider = Get.find<FirebaseAuthProvider>();
   final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _newPasswordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
-  
+
   String _role = '';
   bool _isOtpSent = false;
   String _verifiedEmail = '';
@@ -27,16 +25,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
   late final AnimationController _animCtrl;
   late final Animation<double> _fade;
   late final Animation<Offset> _slide;
-
-  // Password validation
-  bool _hasUpper = false;
-  bool _hasLower = false;
-  bool _hasDigit = false;
-  bool _hasSpecial = false;
-  bool _minLength = false;
-
-  bool get _isPasswordValid =>
-      _hasUpper && _hasLower && _hasDigit && _hasSpecial && _minLength;
 
   @override
   void initState() {
@@ -52,47 +40,41 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
       }
     }
     _animCtrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 600));
-    _fade = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut)
-        .drive(Tween(begin: 0.0, end: 1.0));
-    _slide = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut)
-        .drive(Tween(begin: const Offset(0, 0.12), end: Offset.zero));
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    _fade = CurvedAnimation(
+      parent: _animCtrl,
+      curve: Curves.easeOut,
+    ).drive(Tween(begin: 0.0, end: 1.0));
+    _slide = CurvedAnimation(
+      parent: _animCtrl,
+      curve: Curves.easeOut,
+    ).drive(Tween(begin: const Offset(0, 0.12), end: Offset.zero));
     _animCtrl.forward();
   }
 
   @override
   void dispose() {
     _emailController.dispose();
-    _newPasswordController.dispose();
-    _confirmPasswordController.dispose();
     _animCtrl.dispose();
     super.dispose();
-  }
-
-  void _checkPassword(String value) {
-    setState(() {
-      _hasUpper = value.contains(RegExp(r'[A-Z]'));
-      _hasLower = value.contains(RegExp(r'[a-z]'));
-      _hasDigit = value.contains(RegExp(r'[0-9]'));
-      _hasSpecial = value.contains(RegExp(r'[!@#\$%^&*(),.?":{}|<>]'));
-      _minLength = value.length >= 8;
-    });
   }
 
   Future<void> _sendResetLink() async {
     final identifier = _emailController.text.trim();
     if (identifier.isEmpty) {
-      Get.snackbar('Validation', 'Please enter your user ID or email.',
-          snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar(
+        'Validation',
+        'Please enter your user ID or email.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
       return;
     }
 
     // Step 1: Send Firebase password reset link
-    final ok = await _authProvider.resetPassword(
-      identifier,
-      roleHint: _role,
-    );
-    
+    final ok = await _authProvider.resetPassword(identifier, roleHint: _role);
+
     if (!ok) {
       Get.snackbar(
         'Reset failed',
@@ -109,7 +91,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
       identifier,
       roleHint: _role,
     );
-    
+
     final otp = await _authProvider.sendEmailOtp(
       email: resolvedEmail,
       mode: 'forgotPassword',
@@ -129,30 +111,15 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
   }
 
   Future<void> _verifyAndReset() async {
-    if (!_isPasswordValid) {
-      Get.snackbar(
-        'Validation',
-        'Password does not meet requirements',
-        snackPosition: SnackPosition.BOTTOM,
-      );
-      return;
-    }
-
-    if (_newPasswordController.text != _confirmPasswordController.text) {
-      Get.snackbar(
-        'Validation',
-        'Passwords do not match',
-        snackPosition: SnackPosition.BOTTOM,
-      );
-      return;
-    }
-
     // Navigate to OTP screen for verification
-    final result = await Get.toNamed(AppRoutes.otp, arguments: {
-      'email': _verifiedEmail,
-      'mode': 'forgotPassword',
-      'role': _role,
-    });
+    final result = await Get.toNamed(
+      AppRoutes.otp,
+      arguments: {
+        'email': _verifiedEmail,
+        'mode': 'forgotPassword',
+        'role': _role,
+      },
+    );
 
     if (result == true) {
       // OTP verified, now user can use Firebase reset link
@@ -200,7 +167,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
                 child: Center(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 24, vertical: 32),
+                      horizontal: 24,
+                      vertical: 32,
+                    ),
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 480),
                       child: Column(
@@ -224,8 +193,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
                                 ),
                               ],
                             ),
-                            child: const Icon(Icons.lock_reset_rounded,
-                                color: Colors.white, size: 36),
+                            child: const Icon(
+                              Icons.lock_reset_rounded,
+                              color: Colors.white,
+                              size: 36,
+                            ),
                           ),
                           const SizedBox(height: 20),
                           Text(
@@ -242,7 +214,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
                                 ? 'Check your email and verify with OTP'
                                 : 'Enter your user ID or email to receive a reset link',
                             style: TextStyle(
-                                color: palette.subtext, fontSize: 14),
+                              color: palette.subtext,
+                              fontSize: 14,
+                            ),
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 32),
@@ -266,20 +240,25 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
                                     controller: _emailController,
                                     keyboardType: TextInputType.emailAddress,
                                     decoration: InputDecoration(
-                                      labelText: _role.toLowerCase() == 'principal'
+                                      labelText:
+                                          _role.toLowerCase() == 'principal'
                                           ? 'Principal Email'
                                           : 'User ID or Email',
-                                      prefixIcon:
-                                          const Icon(Icons.lock_person_outlined),
+                                      prefixIcon: const Icon(
+                                        Icons.lock_person_outlined,
+                                      ),
                                       enabledBorder: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(12),
-                                        borderSide:
-                                            BorderSide(color: palette.border),
+                                        borderSide: BorderSide(
+                                          color: palette.border,
+                                        ),
                                       ),
                                       focusedBorder: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(12),
                                         borderSide: BorderSide(
-                                            color: palette.primary, width: 1.4),
+                                          color: palette.primary,
+                                          width: 1.4,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -287,29 +266,32 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
                                   SizedBox(
                                     width: double.infinity,
                                     height: 52,
-                                    child: Obx(() => ElevatedButton.icon(
-                                          onPressed:
-                                              _authProvider.isLoading.value
-                                                  ? null
-                                                  : _sendResetLink,
-                                          icon: const Icon(Icons.email_outlined),
-                                          label: Text(
-                                            _authProvider.isLoading.value
-                                                ? 'Sending...'
-                                                : 'Send Reset Link & OTP',
-                                            style: const TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w700),
+                                    child: Obx(
+                                      () => ElevatedButton.icon(
+                                        onPressed: _authProvider.isLoading.value
+                                            ? null
+                                            : _sendResetLink,
+                                        icon: const Icon(Icons.email_outlined),
+                                        label: Text(
+                                          _authProvider.isLoading.value
+                                              ? 'Sending...'
+                                              : 'Send Reset Link & OTP',
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w700,
                                           ),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: palette.primary,
-                                            foregroundColor: Colors.white,
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(14),
+                                        ),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: palette.primary,
+                                          foregroundColor: Colors.white,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              14,
                                             ),
                                           ),
-                                        )),
+                                        ),
+                                      ),
+                                    ),
                                   ),
                                 ] else ...[
                                   Container(
@@ -321,8 +303,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
                                     ),
                                     child: Column(
                                       children: [
-                                        Icon(Icons.mark_email_read,
-                                            color: palette.primary, size: 48),
+                                        Icon(
+                                          Icons.mark_email_read,
+                                          color: palette.primary,
+                                          size: 48,
+                                        ),
                                         const SizedBox(height: 12),
                                         Text(
                                           'Reset link sent to:',
@@ -363,15 +348,17 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
                                       label: const Text(
                                         'Verify with OTP',
                                         style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w700),
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700,
+                                        ),
                                       ),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: palette.primary,
                                         foregroundColor: Colors.white,
                                         shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(14),
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
                                         ),
                                       ),
                                     ),

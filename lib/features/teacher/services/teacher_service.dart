@@ -9,8 +9,18 @@ class TeacherService extends GetxService {
   final FirestoreCollectionService _store = FirestoreCollectionService();
   final RxList<TeacherModel> teachers = <TeacherModel>[].obs;
   final RxBool isLoading = false.obs;
+  Future<List<TeacherModel>>? _teachersLoadFuture;
 
   Future<List<TeacherModel>> loadTeachers() async {
+    final inFlight = _teachersLoadFuture;
+    if (inFlight != null) return inFlight;
+
+    final future = _loadTeachersInternal();
+    _teachersLoadFuture = future;
+    return future;
+  }
+
+  Future<List<TeacherModel>> _loadTeachersInternal() async {
     isLoading.value = true;
     try {
       final fetched = await _store.getCollection<TeacherModel>(
@@ -28,6 +38,7 @@ class TeacherService extends GetxService {
       return teachers.toList();
     } finally {
       isLoading.value = false;
+      _teachersLoadFuture = null;
     }
   }
 

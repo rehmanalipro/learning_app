@@ -6,7 +6,6 @@ import '../../core/services/class_roster_service.dart';
 import '../../core/theme/app_theme_helper.dart';
 import '../../features/attendance/services/attendance_service.dart';
 import '../../features/auth/providers/firebase_auth_provider.dart';
-import '../../features/school/controllers/school_controller.dart';
 import '../../features/school/providers/school_data_provider.dart';
 import '../../features/school/views/school_info_screen.dart';
 import '../../features/theme/providers/app_theme_provider.dart';
@@ -45,7 +44,6 @@ class RoleHomeScreen extends StatefulWidget {
 
 class _RoleHomeScreenState extends State<RoleHomeScreen> {
   final SchoolDataProvider _schoolDataProvider = Get.find<SchoolDataProvider>();
-  final SchoolController _schoolController = Get.find<SchoolController>();
   final FirebaseAuthProvider _authProvider = Get.find<FirebaseAuthProvider>();
   final AppThemeProvider _appThemeProvider = Get.find<AppThemeProvider>();
   final ClassBindingService _classBindingService =
@@ -105,18 +103,17 @@ class _RoleHomeScreenState extends State<RoleHomeScreen> {
         height: 88,
       ),
       body: Obx(() {
-        final _ = _schoolController.feedRevision;
+        final _ = _schoolDataProvider.feedRevision;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _showStudentNotificationPopupIfNeeded();
         });
 
         final schoolData = _schoolDataProvider.schoolData.value;
         final unreadCount = _appThemeProvider.notificationsEnabled.value
-            ? _schoolController.unreadNoticeCountForRole(widget.roleLabel)
+            ? _schoolDataProvider.unreadNoticeCountForRole(widget.roleLabel)
             : 0;
-        final latestPost = _schoolController.noticePosts.isEmpty
-            ? null
-            : _schoolController.noticePosts.first;
+        final latestPosts = _schoolDataProvider.sortedNoticePosts;
+        final latestPost = latestPosts.isEmpty ? null : latestPosts.first;
 
         final items = <_HomeItem>[
           if (_isPrincipal)
@@ -442,7 +439,9 @@ class _RoleHomeScreenState extends State<RoleHomeScreen> {
     if (!_isStudent || !mounted) return;
 
     final notificationsEnabled = _appThemeProvider.notificationsEnabled.value;
-    final unreadPosts = _schoolController.unreadPostsForRole(widget.roleLabel);
+    final unreadPosts = _schoolDataProvider.unreadPostsForRole(
+      widget.roleLabel,
+    );
     final unreadCount = notificationsEnabled ? unreadPosts.length : 0;
 
     if (unreadCount <= 0 || unreadCount == _lastPopupUnreadCount) return;

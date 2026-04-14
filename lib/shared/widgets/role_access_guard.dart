@@ -31,7 +31,12 @@ class _RoleAccessGuardState extends State<RoleAccessGuard> {
   }
 
   Future<void> _verifyAccess() async {
-    final userData = await _authProvider.loadCurrentUserData();
+    final cachedUserData = _authProvider.peekCurrentUserData(
+      roleHint: widget.requiredRole,
+    );
+    final userData =
+        cachedUserData ??
+        await _authProvider.loadCurrentUserData(roleHint: widget.requiredRole);
     final savedRole = (userData?['role'] as String? ?? '').trim();
 
     if (!mounted) return;
@@ -78,9 +83,7 @@ class _RoleAccessGuardState extends State<RoleAccessGuard> {
   @override
   Widget build(BuildContext context) {
     if (_isChecking) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     if (!_isAllowed) {

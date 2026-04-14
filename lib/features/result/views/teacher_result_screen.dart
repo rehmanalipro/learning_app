@@ -21,7 +21,7 @@ class TeacherResultScreen extends StatefulWidget {
 }
 
 class _TeacherResultScreenState extends State<TeacherResultScreen> {
-  final ResultProvider _provider = Get.put(ResultProvider());
+  final ResultProvider _provider = Get.find<ResultProvider>();
   final ClassBindingService _classBinding = Get.find<ClassBindingService>();
   final ClassRosterService _rosterService = Get.find<ClassRosterService>();
   final FirebaseAuthProvider _authProvider = Get.find<FirebaseAuthProvider>();
@@ -639,7 +639,8 @@ class _TeacherResultScreenState extends State<TeacherResultScreen> {
             controller: _searchController,
             onChanged: (value) => setState(() => _searchQuery = value),
             decoration: InputDecoration(
-              hintText: 'Search by name, user ID, admission no, roll number, or email',
+              hintText:
+                  'Search by name, user ID, admission no, roll number, or email',
               prefixIcon: const Icon(Icons.search),
               suffixIcon: _searchQuery.isEmpty
                   ? null

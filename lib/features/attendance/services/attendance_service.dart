@@ -10,8 +10,18 @@ class AttendanceService extends GetxService {
   final RxList<AttendanceEntryModel> attendanceEntries =
       <AttendanceEntryModel>[].obs;
   final RxBool isLoading = false.obs;
+  Future<List<AttendanceEntryModel>>? _entriesLoadFuture;
 
   Future<List<AttendanceEntryModel>> loadEntries() async {
+    final inFlight = _entriesLoadFuture;
+    if (inFlight != null) return inFlight;
+
+    final future = _loadEntriesInternal();
+    _entriesLoadFuture = future;
+    return future;
+  }
+
+  Future<List<AttendanceEntryModel>> _loadEntriesInternal() async {
     isLoading.value = true;
     try {
       final fetched = await _store.getCollection<AttendanceEntryModel>(
@@ -29,6 +39,7 @@ class AttendanceService extends GetxService {
       return attendanceEntries.toList(growable: false);
     } finally {
       isLoading.value = false;
+      _entriesLoadFuture = null;
     }
   }
 

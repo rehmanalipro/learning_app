@@ -24,10 +24,7 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final ProfileController _profileController = Get.put(
-    ProfileController(),
-    permanent: true,
-  );
+  final ProfileController _profileController = Get.find<ProfileController>();
   final FirebaseService _firebaseService = FirebaseService();
   final FirebaseStorageService _storageService = FirebaseStorageService();
   final ImagePicker _picker = ImagePicker();

@@ -15,6 +15,7 @@ class SchoolDataService extends GetxService {
     'teacher': <String>{},
     'principal': <String>{},
   };
+  Future<void>? _loadSchoolDataFuture;
 
   static SchoolDataModel _defaultSchoolData() {
     return SchoolDataModel(
@@ -38,32 +39,45 @@ class SchoolDataService extends GetxService {
   }
 
   Future<void> loadSchoolData() async {
-    final raw = await _store.getRawDocument(_documentPath);
-    if (raw == null) {
-      await persistSchoolData();
-      await _loadNoticePosts();
-      feedRevision.value++;
-      return;
-    }
+    final inFlight = _loadSchoolDataFuture;
+    if (inFlight != null) return inFlight;
 
-    schoolData.value = SchoolDataModel.fromMap(raw);
-    final rawReadMap = Map<String, dynamic>.from(
-      raw['readNoticeIdsByRole'] as Map? ?? const {},
-    );
-    readNoticeIdsByRole
-      ..clear()
-      ..addAll(
-        rawReadMap.map<String, Set<String>>(
-          (key, value) => MapEntry(
-            key,
-            (value as List<dynamic>? ?? const [])
-                .map((item) => item.toString())
-                .toSet(),
-          ),
-        ),
+    final future = _loadSchoolDataInternal();
+    _loadSchoolDataFuture = future;
+    return future;
+  }
+
+  Future<void> _loadSchoolDataInternal() async {
+    try {
+      final raw = await _store.getRawDocument(_documentPath);
+      if (raw == null) {
+        await persistSchoolData();
+        await _loadNoticePosts();
+        feedRevision.value++;
+        return;
+      }
+
+      schoolData.value = SchoolDataModel.fromMap(raw);
+      final rawReadMap = Map<String, dynamic>.from(
+        raw['readNoticeIdsByRole'] as Map? ?? const {},
       );
-    await _loadNoticePosts(legacyPosts: schoolData.value.noticePosts);
-    feedRevision.value++;
+      readNoticeIdsByRole
+        ..clear()
+        ..addAll(
+          rawReadMap.map<String, Set<String>>(
+            (key, value) => MapEntry(
+              key,
+              (value as List<dynamic>? ?? const [])
+                  .map((item) => item.toString())
+                  .toSet(),
+            ),
+          ),
+        );
+      await _loadNoticePosts(legacyPosts: schoolData.value.noticePosts);
+      feedRevision.value++;
+    } finally {
+      _loadSchoolDataFuture = null;
+    }
   }
 
   Future<void> _loadNoticePosts({
@@ -84,7 +98,8 @@ class SchoolDataService extends GetxService {
         );
       }
       schoolData.value = schoolData.value.copyWith(
-        noticePosts: legacyPosts..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
+        noticePosts: legacyPosts
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
       );
       return;
     }
@@ -159,12 +174,14 @@ class SchoolDataService extends GetxService {
     String? section,
   }) {
     if (role.toLowerCase() == 'principal') return sortedNoticePosts;
-    return sortedNoticePosts.where((post) {
-      if (post.scope == 'school') return true;
-      return post.scope == 'class' &&
-          post.className == className &&
-          post.section == section;
-    }).toList(growable: false);
+    return sortedNoticePosts
+        .where((post) {
+          if (post.scope == 'school') return true;
+          return post.scope == 'class' &&
+              post.className == className &&
+              post.section == section;
+        })
+        .toList(growable: false);
   }
 
   List<NoticePostModel> unreadPostsForRole(
@@ -174,9 +191,11 @@ class SchoolDataService extends GetxService {
   }) {
     final key = role.toLowerCase();
     final readIds = readNoticeIdsByRole[key] ?? <String>{};
-    return noticesForRole(role: role, className: className, section: section)
-        .where((post) => !readIds.contains(post.id))
-        .toList(growable: false);
+    return noticesForRole(
+      role: role,
+      className: className,
+      section: section,
+    ).where((post) => !readIds.contains(post.id)).toList(growable: false);
   }
 
   int unreadNoticeCountForRole(
@@ -184,8 +203,11 @@ class SchoolDataService extends GetxService {
     String? className,
     String? section,
   }) {
-    return unreadPostsForRole(role, className: className, section: section)
-        .length;
+    return unreadPostsForRole(
+      role,
+      className: className,
+      section: section,
+    ).length;
   }
 
   bool isNoticeRead(String role, String noticeId) {
@@ -206,8 +228,9 @@ class SchoolDataService extends GetxService {
   }
 
   Future<void> markAllNoticesAsRead(String role) async {
-    readNoticeIdsByRole[role.toLowerCase()] =
-        sortedNoticePosts.map((item) => item.id).toSet();
+    readNoticeIdsByRole[role.toLowerCase()] = sortedNoticePosts
+        .map((item) => item.id)
+        .toSet();
     await persistSchoolData();
     feedRevision.value++;
   }

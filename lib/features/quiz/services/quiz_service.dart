@@ -12,13 +12,24 @@ class QuizService extends GetxService {
   final RxList<QuizModel> quizzes = <QuizModel>[].obs;
   final RxList<QuizAttemptModel> attempts = <QuizAttemptModel>[].obs;
   final RxBool isLoading = false.obs;
+  Future<void>? _loadAllFuture;
 
   Future<void> loadAll() async {
+    final inFlight = _loadAllFuture;
+    if (inFlight != null) return inFlight;
+
+    final future = _loadAllInternal();
+    _loadAllFuture = future;
+    return future;
+  }
+
+  Future<void> _loadAllInternal() async {
     isLoading.value = true;
     try {
       await Future.wait([_loadQuizzes(), _loadAttempts()]);
     } finally {
       isLoading.value = false;
+      _loadAllFuture = null;
     }
   }
 
@@ -27,8 +38,7 @@ class QuizService extends GetxService {
       path: _quizzesCollection,
       fromMap: QuizModel.fromMap,
     );
-    quizzes.value = fetched
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    quizzes.value = fetched..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
   Future<void> _loadAttempts() async {
@@ -120,8 +130,7 @@ class QuizService extends GetxService {
         .where(
           (item) =>
               item.className.trim() == className.trim() &&
-              item.section.trim().toUpperCase() ==
-                  section.trim().toUpperCase(),
+              item.section.trim().toUpperCase() == section.trim().toUpperCase(),
         )
         .toList(growable: false);
   }

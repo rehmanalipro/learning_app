@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -21,7 +22,6 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
   final FirebaseAuthProvider _authProvider = Get.find<FirebaseAuthProvider>();
-  final ProfileProvider _profileProvider = Get.find<ProfileProvider>();
   final AppThemeProvider _appThemeProvider = Get.find<AppThemeProvider>();
 
   final _emailCtrl = TextEditingController();
@@ -30,6 +30,9 @@ class _LoginScreenState extends State<LoginScreen>
   late final AnimationController _animCtrl;
   late final Animation<double> _fade;
   late final Animation<Offset> _slide;
+  bool _isSubmitting = false;
+
+  ProfileProvider get _profileProvider => Get.find<ProfileProvider>();
 
   String get _role {
     final args = Get.arguments;
@@ -68,79 +71,95 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Future<void> _login() async {
+    if (_isSubmitting) return;
+    FocusScope.of(context).unfocus();
     final requestedRole = _role.trim();
     final identifier = _emailCtrl.text.trim();
     final password = _passCtrl.text.trim();
-    if (identifier.isEmpty || password.isEmpty) {
-      Get.snackbar(
-        'Validation',
-        'User ID or email and password are required.',
-        snackPosition: SnackPosition.BOTTOM,
+    var hasNavigated = false;
+    setState(() => _isSubmitting = true);
+    try {
+      if (identifier.isEmpty || password.isEmpty) {
+        Get.snackbar(
+          'Validation',
+          'User ID or email and password are required.',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+        return;
+      }
+      final ok = await _authProvider.signIn(
+        email: identifier,
+        password: password,
+        roleHint: requestedRole,
       );
-      return;
-    }
-    final ok = await _authProvider.signIn(
-      email: identifier,
-      password: password,
-      roleHint: requestedRole,
-    );
-    if (!ok) {
-      Get.snackbar(
-        'Login failed',
-        _authProvider.errorMessage.value.isEmpty
-            ? 'Unable to sign in. Please try again.'
-            : _authProvider.errorMessage.value,
-        snackPosition: SnackPosition.BOTTOM,
-      );
-      return;
-    }
-    final userData = await _authProvider.loadCurrentUserData();
-    final savedRole = (userData?['role'] as String? ?? '').trim();
-    if (savedRole.isEmpty || userData == null) {
-      await _authProvider.signOut();
-      Get.snackbar(
-        'Profile missing',
-        requestedRole.toLowerCase() == 'principal'
-            ? 'Principal account mila lekin us ka Firestore profile document nahi mila. Principal signup app mein band hai, is liye existing principal document ko repair karna hoga.'
-            : 'Account role/profile not found. Please contact the administrator.',
-        snackPosition: SnackPosition.BOTTOM,
-      );
-      return;
-    }
-    if (savedRole.toLowerCase() != requestedRole.toLowerCase()) {
-      await _authProvider.signOut();
-      Get.snackbar(
-        'Access denied',
-        'Yeh account $savedRole ke liye registered hai, $requestedRole portal ke liye nahi.',
-        snackPosition: SnackPosition.BOTTOM,
-      );
-      return;
-    }
-    _profileProvider.ensureProfile(savedRole);
-    final currentUid =
-        _authProvider.currentUser.value?.uid ??
-        _authProvider.firebaseService.currentUser?.uid;
-    if (currentUid != null && currentUid.isNotEmpty) {
-      _appThemeProvider.setCurrentSession(role: savedRole, userId: currentUid);
-    } else {
-      _appThemeProvider.setCurrentRole(savedRole);
-    }
-    Get.find<ClassBindingService>().loadFromUserData(userData!);
+      if (!ok) {
+        Get.snackbar(
+          'Login failed',
+          _authProvider.errorMessage.value.isEmpty
+              ? 'Unable to sign in. Please try again.'
+              : _authProvider.errorMessage.value,
+          snackPosition: SnackPosition.BOTTOM,
+        );
+        return;
+      }
+      final userData =
+          _authProvider.peekCurrentUserData() ??
+          await _authProvider.loadCurrentUserData(roleHint: requestedRole);
+      final savedRole = (userData?['role'] as String? ?? '').trim();
+      if (savedRole.isEmpty || userData == null) {
+        await _authProvider.signOut();
+        Get.snackbar(
+          'Profile missing',
+          requestedRole.toLowerCase() == 'principal'
+              ? 'Principal account mila lekin us ka Firestore profile document nahi mila. Principal signup app mein band hai, is liye existing principal document ko repair karna hoga.'
+              : 'Account role/profile not found. Please contact the administrator.',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+        return;
+      }
+      if (savedRole.toLowerCase() != requestedRole.toLowerCase()) {
+        await _authProvider.signOut();
+        Get.snackbar(
+          'Access denied',
+          'Yeh account $savedRole ke liye registered hai, $requestedRole portal ke liye nahi.',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+        return;
+      }
+      _profileProvider.ensureProfile(savedRole);
+      final currentUid =
+          _authProvider.currentUser.value?.uid ??
+          _authProvider.firebaseService.currentUser?.uid;
+      if (currentUid != null && currentUid.isNotEmpty) {
+        _appThemeProvider.setCurrentSession(
+          role: savedRole,
+          userId: currentUid,
+        );
+      } else {
+        _appThemeProvider.setCurrentRole(savedRole);
+      }
+      Get.find<ClassBindingService>().loadFromUserData(userData);
 
-    final route = savedRole.toLowerCase() == 'teacher'
-        ? AppRoutes.teacher
-        : savedRole.toLowerCase() == 'principal'
-        ? AppRoutes.principal
-        : AppRoutes.student;
-    Get.offAllNamed(route, arguments: savedRole);
+      final route = savedRole.toLowerCase() == 'teacher'
+          ? AppRoutes.teacher
+          : savedRole.toLowerCase() == 'principal'
+          ? AppRoutes.principal
+          : AppRoutes.student;
+      hasNavigated = true;
+      Get.offAllNamed(route, arguments: savedRole);
 
-    unawaited(
-      _completeLoginSetup(
-        role: savedRole,
-        className: userData['className'] as String?,
-        section: userData['section'] as String?,
-      ),
-    );
+      unawaited(
+        _completeLoginSetup(
+          role: savedRole,
+          className: userData['className'] as String?,
+          section: userData['section'] as String?,
+        ),
+      );
+    } finally {
+      if (mounted && !hasNavigated) {
+        setState(() => _isSubmitting = false);
+      }
+    }
   }
 
   Future<void> _completeLoginSetup({
@@ -153,13 +172,11 @@ class _LoginScreenState extends State<LoginScreen>
     } catch (_) {}
 
     try {
-      if (Get.isRegistered<FcmService>()) {
-        await Get.find<FcmService>().subscribeToRoleTopics(
-          role: role,
-          className: className,
-          section: section,
-        );
-      }
+      await Get.find<FcmService>().subscribeToRoleTopics(
+        role: role,
+        className: className,
+        section: section,
+      );
     } catch (_) {}
   }
 
@@ -239,7 +256,8 @@ class _LoginScreenState extends State<LoginScreen>
                       // User ID / email field
                       _IconField(
                         controller: _emailCtrl,
-                        hint: _role.toLowerCase() == 'student' ||
+                        hint:
+                            _role.toLowerCase() == 'student' ||
                                 _role.toLowerCase() == 'teacher'
                             ? 'User ID or Email'
                             : 'Email',
@@ -280,29 +298,11 @@ class _LoginScreenState extends State<LoginScreen>
                         width: double.infinity,
                         height: 52,
                         child: Obx(
-                          () => ElevatedButton.icon(
-                            onPressed: _authProvider.isLoading.value
+                          () => ElevatedButton(
+                            onPressed:
+                                (_isSubmitting || _authProvider.isLoading.value)
                                 ? null
                                 : _login,
-                            icon: _authProvider.isLoading.value
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Icon(Icons.login_rounded, size: 20),
-                            label: Text(
-                              _authProvider.isLoading.value
-                                  ? 'Signing in...'
-                                  : 'Sign In',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: palette.primary,
                               foregroundColor: Colors.white,
@@ -310,6 +310,46 @@ class _LoginScreenState extends State<LoginScreen>
                                 borderRadius: BorderRadius.circular(14),
                               ),
                               elevation: 0,
+                            ),
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 180),
+                              switchInCurve: Curves.easeOut,
+                              switchOutCurve: Curves.easeIn,
+                              child:
+                                  (_isSubmitting ||
+                                      _authProvider.isLoading.value)
+                                  ? const Row(
+                                      key: ValueKey('loading'),
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        _ButtonLoadingDots(),
+                                        SizedBox(width: 10),
+                                        Text(
+                                          'Signing in',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  : const Row(
+                                      key: ValueKey('idle'),
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.login_rounded, size: 20),
+                                        SizedBox(width: 10),
+                                        Text(
+                                          'Sign In',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                             ),
                           ),
                         ),
@@ -444,6 +484,61 @@ class _IconFieldState extends State<_IconField> {
             vertical: 16,
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ButtonLoadingDots extends StatefulWidget {
+  const _ButtonLoadingDots();
+
+  @override
+  State<_ButtonLoadingDots> createState() => _ButtonLoadingDotsState();
+}
+
+class _ButtonLoadingDotsState extends State<_ButtonLoadingDots>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (_, _) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: List.generate(3, (index) {
+          final phase = (_controller.value - index / 3) % 1.0;
+          final scale = math.sin(phase * math.pi).clamp(0.0, 1.0);
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: Transform.scale(
+              scale: 0.65 + (scale * 0.35),
+              child: Container(
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withValues(alpha: 0.45 + (scale * 0.55)),
+                ),
+              ),
+            ),
+          );
+        }),
       ),
     );
   }
