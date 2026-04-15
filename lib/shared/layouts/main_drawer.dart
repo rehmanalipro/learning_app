@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../core/services/class_binding_service.dart';
 import '../../features/auth/providers/firebase_auth_provider.dart';
 import '../../core/theme/app_theme_helper.dart';
 import '../../features/profile/providers/profile_provider.dart';
@@ -13,6 +14,121 @@ class MainDrawer extends StatelessWidget {
   final String role;
 
   const MainDrawer({super.key, required this.role});
+
+  Future<bool?> _showLogoutConfirmation() {
+    final dialogContext = Get.context;
+    if (dialogContext == null) {
+      return Future.value(false);
+    }
+    final palette = dialogContext.appPalette;
+
+    return Get.dialog<bool>(
+      Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: palette.surface,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: palette.border),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.08),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: palette.softCard,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(Icons.logout_outlined, color: palette.primary),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Logout',
+                      style: TextStyle(
+                        color: palette.text,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Text(
+                'Kya aap waqai app se logout karna chahte hain?',
+                style: TextStyle(
+                  color: palette.subtext,
+                  fontSize: 14,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Get.back(result: false),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: palette.text,
+                        side: BorderSide(color: palette.border),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: const Text('No'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Get.back(result: true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: palette.primary,
+                        foregroundColor: palette.inverseText,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: const Text('Yes'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleLogout(FirebaseAuthProvider authProvider) async {
+    Get.back();
+    await Future<void>.delayed(const Duration(milliseconds: 120));
+    final shouldLogout = await _showLogoutConfirmation() ?? false;
+    if (!shouldLogout) return;
+
+    if (Get.isRegistered<ClassBindingService>()) {
+      Get.find<ClassBindingService>().clear();
+    }
+    await authProvider.signOut(role: role);
+    Get.offAllNamed(AppRoutes.choose);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -174,9 +290,7 @@ class MainDrawer extends StatelessWidget {
                     icon: Icons.logout_outlined,
                     label: 'Logout',
                     onTap: () async {
-                      Get.back();
-                      await authProvider.signOut(role: role);
-                      Get.offAllNamed(AppRoutes.choose);
+                      await _handleLogout(authProvider);
                     },
                   ),
                 ],

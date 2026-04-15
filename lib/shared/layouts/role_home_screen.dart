@@ -5,7 +5,6 @@ import '../../core/services/class_binding_service.dart';
 import '../../core/services/class_roster_service.dart';
 import '../../core/theme/app_theme_helper.dart';
 import '../../features/attendance/services/attendance_service.dart';
-import '../../features/auth/providers/firebase_auth_provider.dart';
 import '../../features/school/providers/school_data_provider.dart';
 import '../../features/school/views/school_info_screen.dart';
 import '../../features/theme/providers/app_theme_provider.dart';
@@ -44,7 +43,6 @@ class RoleHomeScreen extends StatefulWidget {
 
 class _RoleHomeScreenState extends State<RoleHomeScreen> {
   final SchoolDataProvider _schoolDataProvider = Get.find<SchoolDataProvider>();
-  final FirebaseAuthProvider _authProvider = Get.find<FirebaseAuthProvider>();
   final AppThemeProvider _appThemeProvider = Get.find<AppThemeProvider>();
   final ClassBindingService _classBindingService =
       Get.find<ClassBindingService>();
@@ -89,16 +87,6 @@ class _RoleHomeScreenState extends State<RoleHomeScreen> {
             icon: const Icon(Icons.menu),
           ),
         ),
-        actions: [
-          IconButton(
-            onPressed: () async {
-              Get.find<ClassBindingService>().clear();
-              await _authProvider.signOut();
-              Get.offAllNamed(AppRoutes.choose);
-            },
-            icon: const Icon(Icons.logout_outlined),
-          ),
-        ],
         centerTitle: true,
         height: 88,
       ),
