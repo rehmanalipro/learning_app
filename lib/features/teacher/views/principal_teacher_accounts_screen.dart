@@ -33,7 +33,18 @@ class _PrincipalTeacherAccountsScreenState
   final _subjectController = TextEditingController();
   final _searchController = TextEditingController();
 
-  final List<String> _classes = const ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
+  final List<String> _classes = const [
+    '1',
+    '2',
+    '3',
+    '4',
+    '5',
+    '6',
+    '7',
+    '8',
+    '9',
+    '10',
+  ];
   final List<String> _sections = const ['A', 'B', 'C'];
   final List<String> _statuses = const ['active', 'inactive'];
 
@@ -45,6 +56,7 @@ class _PrincipalTeacherAccountsScreenState
   String _filterSection = 'All';
   String _filterStatus = 'All';
   String _searchQuery = '';
+  int _activeTab = 0;
   String _principalName = 'Principal';
   String? _editingProfileId;
   Map<String, String>? _lastIssuedCredentials;
@@ -52,7 +64,9 @@ class _PrincipalTeacherAccountsScreenState
 
   TeacherProfileModel? get _editingProfile => _editingProfileId == null
       ? null
-      : _provider.teacherProfiles.firstWhereOrNull((item) => item.id == _editingProfileId);
+      : _provider.teacherProfiles.firstWhereOrNull(
+          (item) => item.id == _editingProfileId,
+        );
 
   @override
   void initState() {
@@ -134,6 +148,7 @@ class _PrincipalTeacherAccountsScreenState
         );
         if (!mounted) return;
         _resetForm();
+        _activeTab = 1;
         Get.snackbar(
           'Saved',
           'Teacher record saved and login generated successfully.',
@@ -142,6 +157,7 @@ class _PrincipalTeacherAccountsScreenState
         return;
       }
       _resetForm();
+      _activeTab = 1;
       Get.snackbar(
         'Saved',
         'Teacher account record has been updated.',
@@ -162,7 +178,9 @@ class _PrincipalTeacherAccountsScreenState
     }
   }
 
-  Future<void> _generateCredentialsForProfile(TeacherProfileModel profile) async {
+  Future<void> _generateCredentialsForProfile(
+    TeacherProfileModel profile,
+  ) async {
     if (_isSavingTeacher) return;
     setState(() {
       _isSavingTeacher = true;
@@ -223,7 +241,11 @@ class _PrincipalTeacherAccountsScreenState
 
   Future<void> _copyText(String label, String value) async {
     await Clipboard.setData(ClipboardData(text: value));
-    Get.snackbar('Copied', '$label copied successfully.', snackPosition: SnackPosition.BOTTOM);
+    Get.snackbar(
+      'Copied',
+      '$label copied successfully.',
+      snackPosition: SnackPosition.BOTTOM,
+    );
   }
 
   Future<void> _showCredentialsDialog({
@@ -281,6 +303,7 @@ class _PrincipalTeacherAccountsScreenState
       _selectedSection = profile.section;
       _selectedStatus = profile.status;
       _isClassTeacher = profile.isClassTeacher;
+      _activeTab = 0;
     });
   }
 
@@ -301,19 +324,28 @@ class _PrincipalTeacherAccountsScreenState
   }
 
   List<TeacherProfileModel> _filteredTeachers(List<TeacherProfileModel> items) {
-    return items.where((profile) {
-      final matchesClass = _filterClass == 'All' || profile.className == _filterClass;
-      final matchesSection = _filterSection == 'All' || profile.section == _filterSection;
-      final matchesStatus = _filterStatus == 'All' || profile.status == _filterStatus;
-      final query = _searchQuery.trim().toLowerCase();
-      final matchesSearch = query.isEmpty ||
-          profile.fullName.toLowerCase().contains(query) ||
-          profile.teacherEmail.toLowerCase().contains(query) ||
-          profile.employeeId.toLowerCase().contains(query) ||
-          profile.subject.toLowerCase().contains(query) ||
-          profile.generatedUserId.toLowerCase().contains(query);
-      return matchesClass && matchesSection && matchesStatus && matchesSearch;
-    }).toList(growable: false);
+    return items
+        .where((profile) {
+          final matchesClass =
+              _filterClass == 'All' || profile.className == _filterClass;
+          final matchesSection =
+              _filterSection == 'All' || profile.section == _filterSection;
+          final matchesStatus =
+              _filterStatus == 'All' || profile.status == _filterStatus;
+          final query = _searchQuery.trim().toLowerCase();
+          final matchesSearch =
+              query.isEmpty ||
+              profile.fullName.toLowerCase().contains(query) ||
+              profile.teacherEmail.toLowerCase().contains(query) ||
+              profile.employeeId.toLowerCase().contains(query) ||
+              profile.subject.toLowerCase().contains(query) ||
+              profile.generatedUserId.toLowerCase().contains(query);
+          return matchesClass &&
+              matchesSection &&
+              matchesStatus &&
+              matchesSearch;
+        })
+        .toList(growable: false);
   }
 
   @override
@@ -353,27 +385,37 @@ class _PrincipalTeacherAccountsScreenState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildSummaryCard(palette, teachers),
-                  if (_lastIssuedCredentials != null) ...[
+                  _buildTopTabs(
+                    palette,
+                    leftLabel: 'Teacher Form',
+                    rightLabel: 'Teachers List',
+                  ),
+                  const SizedBox(height: 16),
+                  if (_activeTab == 0) ...[
+                    _buildSummaryCard(palette, teachers),
                     const SizedBox(height: 16),
-                    _buildLatestCredentialsCard(palette),
-                  ],
-                  const SizedBox(height: 16),
-                  _buildFormCard(palette),
-                  const SizedBox(height: 16),
-                  _buildFilterCard(palette, teachers.length, filtered.length),
-                  const SizedBox(height: 16),
-                  if (_provider.isLoading.value)
-                    const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(32),
-                        child: CircularProgressIndicator(),
+                    if (_lastIssuedCredentials != null) ...[
+                      _buildLatestCredentialsCard(palette),
+                      const SizedBox(height: 16),
+                    ],
+                    _buildFormCard(palette),
+                  ] else ...[
+                    _buildFilterCard(palette, teachers.length, filtered.length),
+                    const SizedBox(height: 16),
+                    if (_provider.isLoading.value)
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(32),
+                          child: CircularProgressIndicator(),
+                        ),
+                      )
+                    else if (filtered.isEmpty)
+                      _buildEmptyCard(palette)
+                    else
+                      ...filtered.map(
+                        (profile) => _buildTeacherCard(palette, profile),
                       ),
-                    )
-                  else if (filtered.isEmpty)
-                    _buildEmptyCard(palette)
-                  else
-                    ...filtered.map((profile) => _buildTeacherCard(palette, profile)),
+                  ],
                 ],
               ),
             ),
@@ -393,7 +435,9 @@ class _PrincipalTeacherAccountsScreenState
           ),
         ),
         IconButton(
-          onPressed: value.trim().isEmpty ? null : () => _copyText(label, value),
+          onPressed: value.trim().isEmpty
+              ? null
+              : () => _copyText(label, value),
           icon: const Icon(Icons.copy_outlined),
           tooltip: 'Copy $label',
         ),
@@ -405,10 +449,13 @@ class _PrincipalTeacherAccountsScreenState
     AppThemePalette palette,
     List<TeacherProfileModel> teachers,
   ) {
-    final activeCount =
-        teachers.where((item) => item.status.toLowerCase() == 'active').length;
+    final activeCount = teachers
+        .where((item) => item.status.toLowerCase() == 'active')
+        .length;
     final linkedCount = teachers.where((item) => item.isLinked).length;
-    final classTeacherCount = teachers.where((item) => item.isClassTeacher).length;
+    final classTeacherCount = teachers
+        .where((item) => item.isClassTeacher)
+        .length;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -422,7 +469,11 @@ class _PrincipalTeacherAccountsScreenState
         children: [
           Text(
             'Teacher Access Flow',
-            style: TextStyle(color: palette.text, fontWeight: FontWeight.w700, fontSize: 16),
+            style: TextStyle(
+              color: palette.text,
+              fontWeight: FontWeight.w700,
+              fontSize: 16,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
@@ -460,12 +511,19 @@ class _PrincipalTeacherAccountsScreenState
         children: [
           Text(
             'Latest Generated Teacher Login',
-            style: TextStyle(color: palette.text, fontWeight: FontWeight.w700, fontSize: 16),
+            style: TextStyle(
+              color: palette.text,
+              fontWeight: FontWeight.w700,
+              fontSize: 16,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
             creds['fullName'] ?? '',
-            style: TextStyle(color: palette.subtext, fontWeight: FontWeight.w600),
+            style: TextStyle(
+              color: palette.subtext,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 12),
           _credentialRow('User ID', creds['userId'] ?? ''),
@@ -503,6 +561,54 @@ class _PrincipalTeacherAccountsScreenState
     );
   }
 
+  Widget _buildTopTabs(
+    AppThemePalette palette, {
+    required String leftLabel,
+    required String rightLabel,
+  }) {
+    Widget tabItem({required int index, required String label}) {
+      final isSelected = _activeTab == index;
+      return Expanded(
+        child: GestureDetector(
+          onTap: () => setState(() => _activeTab = index),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: isSelected ? palette.primary : Colors.transparent,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? palette.inverseText : palette.text,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: palette.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: palette.border),
+      ),
+      child: Row(
+        children: [
+          tabItem(index: 0, label: leftLabel),
+          const SizedBox(width: 8),
+          tabItem(index: 1, label: rightLabel),
+        ],
+      ),
+    );
+  }
+
   Widget _buildFormCard(AppThemePalette palette) {
     final isLinkedEditing = _editingProfile?.isLinked ?? false;
     return Container(
@@ -522,12 +628,21 @@ class _PrincipalTeacherAccountsScreenState
               children: [
                 Expanded(
                   child: Text(
-                    _editingProfileId == null ? 'Create Teacher Record' : 'Edit Teacher Record',
-                    style: TextStyle(color: palette.text, fontWeight: FontWeight.w700, fontSize: 16),
+                    _editingProfileId == null
+                        ? 'Create Teacher Record'
+                        : 'Edit Teacher Record',
+                    style: TextStyle(
+                      color: palette.text,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
                   ),
                 ),
                 if (_editingProfileId != null)
-                  TextButton(onPressed: _resetForm, child: const Text('Cancel Edit')),
+                  TextButton(
+                    onPressed: _resetForm,
+                    child: const Text('Cancel Edit'),
+                  ),
               ],
             ),
             const SizedBox(height: 12),
@@ -542,45 +657,90 @@ class _PrincipalTeacherAccountsScreenState
                     enabled: !isLinkedEditing,
                     keyboardType: TextInputType.emailAddress,
                     validator: (value) {
-                      if (value == null || value.trim().isEmpty) return 'Required';
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Required';
+                      }
                       if (!value.contains('@')) return 'Enter valid email';
                       return null;
                     },
                   ),
                 ),
                 const SizedBox(width: 12),
-                Expanded(child: _field(_phoneController, 'Phone', keyboardType: TextInputType.phone)),
+                Expanded(
+                  child: _field(
+                    _phoneController,
+                    'Phone',
+                    keyboardType: TextInputType.phone,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 12),
             Row(
               children: [
-                Expanded(child: _field(_employeeIdController, 'Employee ID', validator: _required)),
+                Expanded(
+                  child: _field(
+                    _employeeIdController,
+                    'Employee ID',
+                    validator: _required,
+                  ),
+                ),
                 const SizedBox(width: 12),
-                Expanded(child: _field(_departmentController, 'Department / Program')),
+                Expanded(
+                  child: _field(_departmentController, 'Department / Program'),
+                ),
               ],
             ),
             const SizedBox(height: 12),
             Row(
               children: [
-                Expanded(child: _dropdown('Class', _selectedClass, _classes, (v) => setState(() => _selectedClass = v!))),
+                Expanded(
+                  child: _dropdown(
+                    'Class',
+                    _selectedClass,
+                    _classes,
+                    (v) => setState(() => _selectedClass = v!),
+                  ),
+                ),
                 const SizedBox(width: 12),
-                Expanded(child: _dropdown('Section', _selectedSection, _sections, (v) => setState(() => _selectedSection = v!))),
+                Expanded(
+                  child: _dropdown(
+                    'Section',
+                    _selectedSection,
+                    _sections,
+                    (v) => setState(() => _selectedSection = v!),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 12),
             Row(
               children: [
-                Expanded(child: _field(_subjectController, 'Subject', validator: _required)),
+                Expanded(
+                  child: _field(
+                    _subjectController,
+                    'Subject',
+                    validator: _required,
+                  ),
+                ),
                 const SizedBox(width: 12),
-                Expanded(child: _dropdown('Status', _selectedStatus, _statuses, (v) => setState(() => _selectedStatus = v!))),
+                Expanded(
+                  child: _dropdown(
+                    'Status',
+                    _selectedStatus,
+                    _statuses,
+                    (v) => setState(() => _selectedStatus = v!),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 8),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('Class Teacher'),
-              subtitle: const Text('On karne se teacher class teacher mark ho jayega.'),
+              subtitle: const Text(
+                'On karne se teacher class teacher mark ho jayega.',
+              ),
               value: _isClassTeacher,
               onChanged: (value) => setState(() => _isClassTeacher = value),
             ),
@@ -625,32 +785,68 @@ class _PrincipalTeacherAccountsScreenState
         children: [
           Text(
             'Search Teachers',
-            style: TextStyle(color: palette.text, fontWeight: FontWeight.w700, fontSize: 16),
+            style: TextStyle(
+              color: palette.text,
+              fontWeight: FontWeight.w700,
+              fontSize: 16,
+            ),
           ),
           const SizedBox(height: 8),
-          Text('Total: $total | Showing: $showing', style: TextStyle(color: palette.subtext)),
+          Text(
+            'Total: $total | Showing: $showing',
+            style: TextStyle(color: palette.subtext),
+          ),
           const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
-                child: _dropdown('Class Filter', _filterClass, const ['All', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'], (v) => setState(() => _filterClass = v!)),
+                child: _dropdown(
+                  'Class Filter',
+                  _filterClass,
+                  const [
+                    'All',
+                    '1',
+                    '2',
+                    '3',
+                    '4',
+                    '5',
+                    '6',
+                    '7',
+                    '8',
+                    '9',
+                    '10',
+                  ],
+                  (v) => setState(() => _filterClass = v!),
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: _dropdown('Section Filter', _filterSection, const ['All', 'A', 'B', 'C'], (v) => setState(() => _filterSection = v!)),
+                child: _dropdown(
+                  'Section Filter',
+                  _filterSection,
+                  const ['All', 'A', 'B', 'C'],
+                  (v) => setState(() => _filterSection = v!),
+                ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          _dropdown('Status Filter', _filterStatus, const ['All', 'active', 'inactive'], (v) => setState(() => _filterStatus = v!)),
+          _dropdown('Status Filter', _filterStatus, const [
+            'All',
+            'active',
+            'inactive',
+          ], (v) => setState(() => _filterStatus = v!)),
           const SizedBox(height: 12),
           TextField(
             controller: _searchController,
             onChanged: (value) => setState(() => _searchQuery = value),
             decoration: InputDecoration(
-              hintText: 'Search by name, email, user ID, employee ID, or subject',
+              hintText:
+                  'Search by name, email, user ID, employee ID, or subject',
               prefixIcon: const Icon(Icons.search),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           ),
         ],
@@ -667,11 +863,17 @@ class _PrincipalTeacherAccountsScreenState
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: palette.border),
       ),
-      child: Text('No teacher records found for the selected filters.', style: TextStyle(color: palette.subtext)),
+      child: Text(
+        'No teacher records found for the selected filters.',
+        style: TextStyle(color: palette.subtext),
+      ),
     );
   }
 
-  Widget _buildTeacherCard(AppThemePalette palette, TeacherProfileModel profile) {
+  Widget _buildTeacherCard(
+    AppThemePalette palette,
+    TeacherProfileModel profile,
+  ) {
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 12),
@@ -690,7 +892,11 @@ class _PrincipalTeacherAccountsScreenState
               children: [
                 Text(
                   profile.fullName,
-                  style: TextStyle(color: palette.text, fontWeight: FontWeight.w700, fontSize: 16),
+                  style: TextStyle(
+                    color: palette.text,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Wrap(
@@ -698,24 +904,56 @@ class _PrincipalTeacherAccountsScreenState
                   runSpacing: 8,
                   children: [
                     _infoChip(palette, 'Employee', profile.employeeId),
-                    _infoChip(palette, 'Class', '${profile.className}-${profile.section}'),
+                    _infoChip(
+                      palette,
+                      'Class',
+                      '${profile.className}-${profile.section}',
+                    ),
                     _infoChip(palette, 'Subject', profile.subject),
-                    if (profile.department.isNotEmpty) _infoChip(palette, 'Dept', profile.department),
-                    if (profile.isClassTeacher) _infoChip(palette, 'Role', 'Class Teacher', highlight: true),
-                    if (profile.generatedUserId.isNotEmpty) _infoChip(palette, 'User ID', profile.generatedUserId, highlight: true),
+                    if (profile.department.isNotEmpty)
+                      _infoChip(palette, 'Dept', profile.department),
+                    if (profile.isClassTeacher)
+                      _infoChip(
+                        palette,
+                        'Role',
+                        'Class Teacher',
+                        highlight: true,
+                      ),
+                    if (profile.generatedUserId.isNotEmpty)
+                      _infoChip(
+                        palette,
+                        'User ID',
+                        profile.generatedUserId,
+                        highlight: true,
+                      ),
                     _infoChip(
                       palette,
                       profile.isLinked ? 'Account Ready' : 'Login Pending',
-                      profile.isLinked ? (profile.linkedUserEmail.isEmpty ? 'Account connected' : profile.linkedUserEmail) : 'Generate login from this record',
+                      profile.isLinked
+                          ? (profile.linkedUserEmail.isEmpty
+                                ? 'Account connected'
+                                : profile.linkedUserEmail)
+                          : 'Generate login from this record',
                       highlight: profile.isLinked,
                       warning: !profile.isLinked,
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                if (profile.teacherEmail.isNotEmpty) Text('Email: ${profile.teacherEmail}', style: TextStyle(color: palette.subtext)),
-                if (profile.phone.isNotEmpty) Text('Phone: ${profile.phone}', style: TextStyle(color: palette.subtext)),
-                Text('Status: ${profile.status}', style: TextStyle(color: palette.subtext)),
+                if (profile.teacherEmail.isNotEmpty)
+                  Text(
+                    'Email: ${profile.teacherEmail}',
+                    style: TextStyle(color: palette.subtext),
+                  ),
+                if (profile.phone.isNotEmpty)
+                  Text(
+                    'Phone: ${profile.phone}',
+                    style: TextStyle(color: palette.subtext),
+                  ),
+                Text(
+                  'Status: ${profile.status}',
+                  style: TextStyle(color: palette.subtext),
+                ),
               ],
             ),
           ),
@@ -737,7 +975,8 @@ class _PrincipalTeacherAccountsScreenState
               ),
               if (profile.generatedUserId.isNotEmpty)
                 IconButton(
-                  onPressed: () => _copyText('User ID', profile.generatedUserId),
+                  onPressed: () =>
+                      _copyText('User ID', profile.generatedUserId),
                   icon: Icon(Icons.copy_outlined, color: palette.primary),
                   tooltip: 'Copy user ID',
                 ),
@@ -786,7 +1025,9 @@ class _PrincipalTeacherAccountsScreenState
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       ),
       items: items
-          .map((item) => DropdownMenuItem<String>(value: item, child: Text(item)))
+          .map(
+            (item) => DropdownMenuItem<String>(value: item, child: Text(item)),
+          )
           .toList(growable: false),
     );
   }
@@ -801,8 +1042,8 @@ class _PrincipalTeacherAccountsScreenState
     final backgroundColor = warning
         ? const Color(0xFFFFF4E5)
         : highlight
-            ? palette.softCard
-            : palette.surfaceAlt;
+        ? palette.softCard
+        : palette.surfaceAlt;
     final foregroundColor = warning ? const Color(0xFFB96A00) : palette.text;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -812,7 +1053,11 @@ class _PrincipalTeacherAccountsScreenState
       ),
       child: Text(
         '$label: $value',
-        style: TextStyle(color: foregroundColor, fontSize: 12, fontWeight: FontWeight.w600),
+        style: TextStyle(
+          color: foregroundColor,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }

@@ -56,6 +56,8 @@ class _PrincipalStudentAdmissionsScreenState
   String _selectedSection = 'A';
   String _selectedGender = 'Male';
   String _selectedStatus = 'active';
+  int _activeTab = 0; // 0 = Form, 1 = List
+
   String _filterClass = 'All';
   String _filterSection = 'All';
   String _filterGender = 'All';
@@ -181,6 +183,7 @@ class _PrincipalStudentAdmissionsScreenState
         );
         if (!mounted) return;
         _resetForm();
+        _activeTab = 1;
         Get.snackbar(
           'Saved',
           'Student admission saved and login generated successfully.',
@@ -190,6 +193,7 @@ class _PrincipalStudentAdmissionsScreenState
       }
 
       _resetForm();
+      _activeTab = 1;
       Get.snackbar(
         'Saved',
         'Student admission record has been updated.',
@@ -339,9 +343,11 @@ class _PrincipalStudentAdmissionsScreenState
       _rollNumberController.text = profile.rollNumber;
       _selectedClass = profile.className;
       _selectedSection = profile.section;
-      _selectedGender =
-          profile.gender.isEmpty ? _genders.first : profile.gender;
+      _selectedGender = profile.gender.isEmpty
+          ? _genders.first
+          : profile.gender;
       _selectedStatus = profile.status;
+      _activeTab = 0;
     });
   }
 
@@ -366,27 +372,29 @@ class _PrincipalStudentAdmissionsScreenState
   List<StudentProfileModel> _filteredAdmissions(
     List<StudentProfileModel> items,
   ) {
-    return items.where((profile) {
-      final matchesClass =
-          _filterClass == 'All' || profile.className == _filterClass;
-      final matchesSection =
-          _filterSection == 'All' || profile.section == _filterSection;
-      final matchesGender =
-          _filterGender == 'All' || profile.gender == _filterGender;
-      final query = _searchQuery.trim().toLowerCase();
-      final matchesSearch =
-          query.isEmpty ||
-          profile.fullName.toLowerCase().contains(query) ||
-          profile.admissionNo.toLowerCase().contains(query) ||
-          profile.rollNumber.toLowerCase().contains(query) ||
-          profile.phone.toLowerCase().contains(query) ||
-          profile.studentEmail.toLowerCase().contains(query) ||
-          profile.generatedUserId.toLowerCase().contains(query);
-      return matchesClass &&
-          matchesSection &&
-          matchesGender &&
-          matchesSearch;
-    }).toList(growable: false);
+    return items
+        .where((profile) {
+          final matchesClass =
+              _filterClass == 'All' || profile.className == _filterClass;
+          final matchesSection =
+              _filterSection == 'All' || profile.section == _filterSection;
+          final matchesGender =
+              _filterGender == 'All' || profile.gender == _filterGender;
+          final query = _searchQuery.trim().toLowerCase();
+          final matchesSearch =
+              query.isEmpty ||
+              profile.fullName.toLowerCase().contains(query) ||
+              profile.admissionNo.toLowerCase().contains(query) ||
+              profile.rollNumber.toLowerCase().contains(query) ||
+              profile.phone.toLowerCase().contains(query) ||
+              profile.studentEmail.toLowerCase().contains(query) ||
+              profile.generatedUserId.toLowerCase().contains(query);
+          return matchesClass &&
+              matchesSection &&
+              matchesGender &&
+              matchesSearch;
+        })
+        .toList(growable: false);
   }
 
   @override
@@ -415,33 +423,41 @@ class _PrincipalStudentAdmissionsScreenState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildGuideCard(palette),
-                  const SizedBox(height: 16),
-                  if (_lastIssuedCredentials != null) ...[
-                    _buildLatestCredentialsCard(palette),
-                    const SizedBox(height: 16),
-                  ],
-                  _buildFormCard(palette),
-                  const SizedBox(height: 16),
-                  _buildFilterCard(
+                  _buildTopTabs(
                     palette,
-                    totalAdmissions: admissions.length,
-                    showingAdmissions: filtered.length,
+                    leftLabel: 'Admission Form',
+                    rightLabel: 'Students List',
                   ),
                   const SizedBox(height: 16),
-                  if (_provider.isLoading.value)
-                    const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(32),
-                        child: CircularProgressIndicator(),
-                      ),
-                    )
-                  else if (filtered.isEmpty)
-                    _buildEmptyCard(palette)
-                  else
-                    ...filtered.map(
-                      (profile) => _buildAdmissionCard(palette, profile),
+                  if (_activeTab == 0) ...[
+                    _buildGuideCard(palette),
+                    const SizedBox(height: 16),
+                    if (_lastIssuedCredentials != null) ...[
+                      _buildLatestCredentialsCard(palette),
+                      const SizedBox(height: 16),
+                    ],
+                    _buildFormCard(palette),
+                  ] else ...[
+                    _buildFilterCard(
+                      palette,
+                      totalAdmissions: admissions.length,
+                      showingAdmissions: filtered.length,
                     ),
+                    const SizedBox(height: 16),
+                    if (_provider.isLoading.value)
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(32),
+                          child: CircularProgressIndicator(),
+                        ),
+                      )
+                    else if (filtered.isEmpty)
+                      _buildEmptyCard(palette)
+                    else
+                      ...filtered.map(
+                        (profile) => _buildAdmissionCard(palette, profile),
+                      ),
+                  ],
                 ],
               ),
             ),
@@ -544,18 +560,12 @@ class _PrincipalStudentAdmissionsScreenState
             runSpacing: 8,
             children: [
               OutlinedButton.icon(
-                onPressed: () => _copyText(
-                  'User ID',
-                  creds['userId'] ?? '',
-                ),
+                onPressed: () => _copyText('User ID', creds['userId'] ?? ''),
                 icon: const Icon(Icons.copy_outlined),
                 label: const Text('Copy User ID'),
               ),
               OutlinedButton.icon(
-                onPressed: () => _copyText(
-                  'Password',
-                  creds['password'] ?? '',
-                ),
+                onPressed: () => _copyText('Password', creds['password'] ?? ''),
                 icon: const Icon(Icons.copy_outlined),
                 label: const Text('Copy Password'),
               ),
@@ -569,6 +579,54 @@ class _PrincipalStudentAdmissionsScreenState
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTopTabs(
+    AppThemePalette palette, {
+    required String leftLabel,
+    required String rightLabel,
+  }) {
+    Widget tabItem({required int index, required String label}) {
+      final isSelected = _activeTab == index;
+      return Expanded(
+        child: GestureDetector(
+          onTap: () => setState(() => _activeTab = index),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: isSelected ? palette.primary : Colors.transparent,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? palette.inverseText : palette.text,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: palette.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: palette.border),
+      ),
+      child: Row(
+        children: [
+          tabItem(index: 0, label: leftLabel),
+          const SizedBox(width: 8),
+          tabItem(index: 1, label: rightLabel),
         ],
       ),
     );
@@ -874,7 +932,8 @@ class _PrincipalStudentAdmissionsScreenState
             controller: _searchController,
             onChanged: (value) => setState(() => _searchQuery = value),
             decoration: InputDecoration(
-              hintText: 'Search by name, email, user ID, admission no, or roll no',
+              hintText:
+                  'Search by name, email, user ID, admission no, or roll no',
               prefixIcon: const Icon(Icons.search),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -1013,7 +1072,8 @@ class _PrincipalStudentAdmissionsScreenState
               ),
               if (profile.generatedUserId.isNotEmpty)
                 IconButton(
-                  onPressed: () => _copyText('User ID', profile.generatedUserId),
+                  onPressed: () =>
+                      _copyText('User ID', profile.generatedUserId),
                   tooltip: 'Copy user ID',
                   icon: Icon(Icons.copy_outlined, color: palette.primary),
                 ),
@@ -1074,8 +1134,8 @@ class _PrincipalStudentAdmissionsScreenState
     final backgroundColor = warning
         ? const Color(0xFFFFF4E5)
         : highlight
-            ? palette.softCard
-            : palette.surfaceAlt;
+        ? palette.softCard
+        : palette.surfaceAlt;
     final foregroundColor = warning ? const Color(0xFFB96A00) : palette.text;
 
     return Container(
@@ -1105,7 +1165,9 @@ class _PrincipalStudentAdmissionsScreenState
           ),
         ),
         IconButton(
-          onPressed: value.trim().isEmpty ? null : () => _copyText(label, value),
+          onPressed: value.trim().isEmpty
+              ? null
+              : () => _copyText(label, value),
           icon: const Icon(Icons.copy_outlined),
           tooltip: 'Copy $label',
         ),
