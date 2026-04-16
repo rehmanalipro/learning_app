@@ -10,6 +10,7 @@ import '../../features/school/views/school_info_screen.dart';
 import '../../features/theme/providers/app_theme_provider.dart';
 import '../../routes/app_routes.dart';
 import '../widgets/animated_list_item.dart';
+import '../widgets/adaptive_layout.dart';
 import '../widgets/app_screen_header.dart';
 import '../widgets/app_refresh_scope.dart';
 import '../widgets/responsive_content.dart';
@@ -61,13 +62,13 @@ class _RoleHomeScreenState extends State<RoleHomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _showStudentNotificationPopupIfNeeded();
     });
+    _attendanceService.loadEntries();
     if (_isTeacher) {
       final cn = _classBindingService.className.value;
       final sec = _classBindingService.section.value;
       if (cn.isNotEmpty && sec.isNotEmpty) {
         _classRosterService.loadRoster(className: cn, section: sec);
       }
-      _attendanceService.loadEntries();
     }
   }
 
@@ -184,29 +185,40 @@ class _RoleHomeScreenState extends State<RoleHomeScreen> {
                       children: [
                         Row(
                           children: [
-                            const Text(
-                              'Latest Update',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
+                            Expanded(
+                              child: Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  const Text(
+                                    'Latest Update',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  if (latestPost != null)
+                                    _statusPill(
+                                      text: latestPost.category,
+                                      color: Colors.white.withValues(alpha: 0.18),
+                                    ),
+                                ],
                               ),
                             ),
                             const SizedBox(width: 8),
-                            if (latestPost != null)
-                              _statusPill(
-                                text: latestPost.category,
-                                color: Colors.white.withValues(alpha: 0.18),
-                              ),
-                            const Spacer(),
-                            Text(
-                              widget.roleLabel,
-                              style: TextStyle(
-                                color: palette.inverseText.withValues(
-                                  alpha: 0.78,
+                            Flexible(
+                              child: Text(
+                                widget.roleLabel,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: palette.inverseText.withValues(
+                                    alpha: 0.78,
+                                  ),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
                                 ),
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ],
@@ -324,15 +336,28 @@ class _RoleHomeScreenState extends State<RoleHomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Class ${cn.isNotEmpty ? cn : '—'} | Section ${sec.isNotEmpty ? sec : '—'} | Subject ${sub.isNotEmpty ? sub : '—'}',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: palette.text,
-              ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _statusPill(
+                  text: 'Class ${cn.isNotEmpty ? cn : '-'}',
+                  color: palette.softCard,
+                  textColor: palette.primary,
+                ),
+                _statusPill(
+                  text: 'Section ${sec.isNotEmpty ? sec : '-'}',
+                  color: palette.softCard,
+                  textColor: palette.primary,
+                ),
+                _statusPill(
+                  text: 'Subject ${sub.isNotEmpty ? sub : '-'}',
+                  color: palette.softCard,
+                  textColor: palette.primary,
+                ),
+              ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 10),
             Text(
               'Total Students: $studentCount',
               style: TextStyle(fontSize: 13, color: palette.subtext),
@@ -517,7 +542,11 @@ class _RoleHomeScreenState extends State<RoleHomeScreen> {
     );
   }
 
-  Widget _statusPill({required String text, required Color color}) {
+  Widget _statusPill({
+    required String text,
+    required Color color,
+    Color textColor = Colors.white,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
@@ -526,8 +555,8 @@ class _RoleHomeScreenState extends State<RoleHomeScreen> {
       ),
       child: Text(
         text,
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          color: textColor,
           fontSize: 10,
           fontWeight: FontWeight.w700,
         ),
@@ -544,17 +573,19 @@ class _HomeTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.appPalette;
-    final width = MediaQuery.of(context).size.width;
-    final contentWidth = width > 1240 ? 1180 : width - 32;
-    final columns = contentWidth >= 900
-        ? 4
-        : contentWidth >= 640
-        ? 3
-        : 2;
+    final width = MediaQuery.sizeOf(context).width;
+    final horizontalGutter = context.isExtraNarrowViewport ? 24.0 : 32.0;
+    final contentWidth = width > 1280 ? 1180.0 : width - horizontalGutter;
+    final columns = context.adaptiveColumns(
+      compact: context.isExtraNarrowViewport ? 1 : 2,
+      medium: 3,
+      expanded: 4,
+      wide: 5,
+    );
     final tileWidth = (contentWidth - ((columns - 1) * 10)) / columns;
 
     return SizedBox(
-      width: tileWidth.clamp(120.0, 220.0),
+      width: tileWidth.clamp(120.0, 220.0).toDouble(),
       child: InkWell(
         onTap: item.onTap,
         borderRadius: BorderRadius.circular(12),

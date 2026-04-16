@@ -375,50 +375,70 @@ class _PrincipalTeacherAccountsScreenState
         child: Obx(() {
           final teachers = _provider.teacherProfiles.toList(growable: false);
           final filtered = _filteredTeachers(teachers);
-          return SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(
-              parent: BouncingScrollPhysics(),
-            ),
-            child: ResponsiveContent(
-              maxWidth: 1100,
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildTopTabs(
+          return Column(
+            children: [
+              // Fixed Tab Bar
+              Container(
+                color: palette.surfaceAlt,
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: ResponsiveContent(
+                  maxWidth: 1100,
+                  child: _buildTopTabs(
                     palette,
                     leftLabel: 'Teacher Form',
                     rightLabel: 'Teachers List',
                   ),
-                  const SizedBox(height: 16),
-                  if (_activeTab == 0) ...[
-                    _buildSummaryCard(palette, teachers),
-                    const SizedBox(height: 16),
-                    if (_lastIssuedCredentials != null) ...[
-                      _buildLatestCredentialsCard(palette),
-                      const SizedBox(height: 16),
-                    ],
-                    _buildFormCard(palette),
-                  ] else ...[
-                    _buildFilterCard(palette, teachers.length, filtered.length),
-                    const SizedBox(height: 16),
-                    if (_provider.isLoading.value)
-                      const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(32),
-                          child: CircularProgressIndicator(),
-                        ),
-                      )
-                    else if (filtered.isEmpty)
-                      _buildEmptyCard(palette)
-                    else
-                      ...filtered.map(
-                        (profile) => _buildTeacherCard(palette, profile),
-                      ),
-                  ],
-                ],
+                ),
               ),
-            ),
+              // Fixed Search Bar (only in list view)
+              if (_activeTab == 1)
+                Container(
+                  color: palette.surfaceAlt,
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: ResponsiveContent(
+                    maxWidth: 1100,
+                    child: _buildCompactSearchBar(palette, teachers.length, filtered.length),
+                  ),
+                ),
+              // Scrollable Content
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: BouncingScrollPhysics(),
+                  ),
+                  child: ResponsiveContent(
+                    maxWidth: 1100,
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (_activeTab == 0) ...[
+                          _buildSummaryCard(palette, teachers),
+                          const SizedBox(height: 12),
+                          if (_lastIssuedCredentials != null) ...[
+                            _buildLatestCredentialsCard(palette),
+                            const SizedBox(height: 12),
+                          ],
+                          _buildFormCard(palette),
+                        ] else ...[
+                          if (_provider.isLoading.value)
+                            const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(32),
+                                child: CircularProgressIndicator(),
+                              ),
+                            )
+                          else if (filtered.isEmpty)
+                            _buildEmptyCard(palette)
+                          else
+                            _buildTeacherTable(palette, filtered),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           );
         }),
       ),
@@ -771,37 +791,469 @@ class _PrincipalTeacherAccountsScreenState
     );
   }
 
+  Widget _buildCompactSearchBar(
+    AppThemePalette palette,
+    int total,
+    int showing,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: palette.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: palette.border),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              onChanged: (value) => setState(() => _searchQuery = value),
+              decoration: const InputDecoration(
+                hintText: 'Search by name, employee ID, subject, email...',
+                hintStyle: TextStyle(fontSize: 12),
+                prefixIcon: Icon(Icons.search, size: 18),
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(vertical: 8),
+              ),
+              style: const TextStyle(fontSize: 13),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '$showing/$total',
+            style: TextStyle(
+              color: palette.subtext,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            onPressed: () => _showFilterMenu(palette),
+            icon: Icon(Icons.filter_list, color: palette.primary, size: 20),
+            tooltip: 'Filters',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showFilterMenu(AppThemePalette palette) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Filters'),
+        content: SizedBox(
+          width: 300,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _dropdown(
+                'Class',
+                _filterClass,
+                const ['All', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
+                (v) => setState(() => _filterClass = v!),
+              ),
+              const SizedBox(height: 12),
+              _dropdown(
+                'Section',
+                _filterSection,
+                const ['All', 'A', 'B', 'C'],
+                (v) => setState(() => _filterSection = v!),
+              ),
+              const SizedBox(height: 12),
+              _dropdown(
+                'Status',
+                _filterStatus,
+                const ['All', 'active', 'inactive'],
+                (v) => setState(() => _filterStatus = v!),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _filterClass = 'All';
+                _filterSection = 'All';
+                _filterStatus = 'All';
+              });
+              Navigator.pop(context);
+            },
+            child: const Text('Clear All'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Apply'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTeacherTable(
+    AppThemePalette palette,
+    List<TeacherProfileModel> teachers,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: palette.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: palette.border),
+      ),
+      child: Column(
+        children: [
+          // Table Header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            decoration: BoxDecoration(
+              color: palette.softCard,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
+            ),
+            child: Row(
+              children: [
+                const SizedBox(
+                  width: 25,
+                  child: Text(
+                    '#',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 10,
+                    ),
+                  ),
+                ),
+                const Expanded(
+                  flex: 4,
+                  child: Text(
+                    'Name',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 10,
+                    ),
+                  ),
+                ),
+                const Expanded(
+                  flex: 3,
+                  child: Text(
+                    'Emp ID',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 10,
+                    ),
+                  ),
+                ),
+                const Expanded(
+                  flex: 3,
+                  child: Text(
+                    'Subject',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 10,
+                    ),
+                  ),
+                ),
+                const Expanded(
+                  flex: 2,
+                  child: Text(
+                    'Class',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 10,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 45),
+              ],
+            ),
+          ),
+          // Table Rows
+          ...teachers.asMap().entries.map((entry) {
+            final index = entry.key;
+            final profile = entry.value;
+            return _buildTeacherRow(palette, index + 1, profile);
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTeacherRow(
+    AppThemePalette palette,
+    int serialNo,
+    TeacherProfileModel profile,
+  ) {
+    return InkWell(
+      onTap: () => _showTeacherDetails(profile),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(color: palette.border, width: 0.5),
+          ),
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 25,
+              child: Text(
+                '$serialNo',
+                style: TextStyle(
+                  color: palette.subtext,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 4,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      profile.fullName,
+                      style: TextStyle(
+                        color: palette.text,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (profile.isLinked)
+                    Container(
+                      margin: const EdgeInsets.only(left: 2),
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE8F5E9),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                      child: const Text(
+                        '✓',
+                        style: TextStyle(
+                          color: Color(0xFF2E7D32),
+                          fontSize: 8,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  if (profile.isClassTeacher)
+                    Container(
+                      margin: const EdgeInsets.only(left: 2),
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE3F2FD),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                      child: const Text(
+                        'CT',
+                        style: TextStyle(
+                          color: Color(0xFF1565C0),
+                          fontSize: 8,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Expanded(
+              flex: 3,
+              child: Text(
+                profile.employeeId,
+                style: TextStyle(
+                  color: palette.text,
+                  fontSize: 10,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Expanded(
+              flex: 3,
+              child: Text(
+                profile.subject,
+                style: TextStyle(
+                  color: palette.text,
+                  fontSize: 10,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Text(
+                '${profile.className}-${profile.section}',
+                style: TextStyle(
+                  color: palette.text,
+                  fontSize: 10,
+                ),
+              ),
+            ),
+            SizedBox(
+              width: 45,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (!profile.isLinked)
+                    IconButton(
+                      onPressed: _isSavingTeacher
+                          ? null
+                          : () => _generateCredentialsForProfile(profile),
+                      tooltip: 'Gen',
+                      icon: Icon(
+                        Icons.vpn_key_outlined,
+                        color: palette.primary,
+                        size: 13,
+                      ),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+                    ),
+                  IconButton(
+                    onPressed: () => _editTeacher(profile),
+                    tooltip: 'Edit',
+                    icon: Icon(
+                      Icons.edit_outlined,
+                      color: palette.primary,
+                      size: 13,
+                    ),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showTeacherDetails(TeacherProfileModel profile) {
+    final palette = context.appPalette;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(profile.fullName),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _detailRow('Employee ID', profile.employeeId),
+              _detailRow('Email', profile.teacherEmail),
+              _detailRow('Phone', profile.phone),
+              _detailRow('Subject', profile.subject),
+              _detailRow('Class', '${profile.className}-${profile.section}'),
+              if (profile.department.isNotEmpty)
+                _detailRow('Department', profile.department),
+              _detailRow('Class Teacher', profile.isClassTeacher ? 'Yes' : 'No'),
+              if (profile.generatedUserId.isNotEmpty)
+                _detailRow('User ID', profile.generatedUserId),
+              _detailRow('Status', profile.status),
+              _detailRow(
+                'Account',
+                profile.isLinked ? 'Linked ✓' : 'Not Linked',
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          if (!profile.isLinked)
+            TextButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                _generateCredentialsForProfile(profile);
+              },
+              icon: const Icon(Icons.vpn_key_outlined),
+              label: const Text('Generate Login'),
+            ),
+          TextButton.icon(
+            onPressed: () {
+              Navigator.pop(context);
+              _editTeacher(profile);
+            },
+            icon: const Icon(Icons.edit_outlined),
+            label: const Text('Edit'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _detailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 110,
+            child: Text(
+              '$label:',
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value.isEmpty ? '-' : value,
+              style: const TextStyle(fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildFilterCard(AppThemePalette palette, int total, int showing) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: palette.surface,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Search Teachers',
-            style: TextStyle(
-              color: palette.text,
-              fontWeight: FontWeight.w700,
-              fontSize: 16,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Search Teachers',
+                  style: TextStyle(
+                    color: palette.text,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+              Text(
+                'Total: $total | Showing: $showing',
+                style: TextStyle(color: palette.subtext, fontSize: 12),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Total: $total | Showing: $showing',
-            style: TextStyle(color: palette.subtext),
-          ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
                 child: _dropdown(
-                  'Class Filter',
+                  'Class',
                   _filterClass,
                   const [
                     'All',
@@ -819,33 +1271,37 @@ class _PrincipalTeacherAccountsScreenState
                   (v) => setState(() => _filterClass = v!),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               Expanded(
                 child: _dropdown(
-                  'Section Filter',
+                  'Section',
                   _filterSection,
                   const ['All', 'A', 'B', 'C'],
                   (v) => setState(() => _filterSection = v!),
                 ),
               ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _dropdown(
+                  'Status',
+                  _filterStatus,
+                  const ['All', 'active', 'inactive'],
+                  (v) => setState(() => _filterStatus = v!),
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 12),
-          _dropdown('Status Filter', _filterStatus, const [
-            'All',
-            'active',
-            'inactive',
-          ], (v) => setState(() => _filterStatus = v!)),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           TextField(
             controller: _searchController,
             onChanged: (value) => setState(() => _searchQuery = value),
             decoration: InputDecoration(
-              hintText:
-                  'Search by name, email, user ID, employee ID, or subject',
-              prefixIcon: const Icon(Icons.search),
+              hintText: 'Search by name, employee ID, subject, email...',
+              hintStyle: const TextStyle(fontSize: 13),
+              prefixIcon: const Icon(Icons.search, size: 20),
+              contentPadding: const EdgeInsets.symmetric(vertical: 10),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
               ),
             ),
           ),
@@ -876,113 +1332,158 @@ class _PrincipalTeacherAccountsScreenState
   ) {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: palette.surface,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: palette.border),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  profile.fullName,
-                  style: TextStyle(
-                    color: palette.text,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                Row(
                   children: [
-                    _infoChip(palette, 'Employee', profile.employeeId),
-                    _infoChip(
-                      palette,
-                      'Class',
-                      '${profile.className}-${profile.section}',
+                    Expanded(
+                      child: Text(
+                        profile.fullName,
+                        style: TextStyle(
+                          color: palette.text,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                        ),
+                      ),
                     ),
-                    _infoChip(palette, 'Subject', profile.subject),
-                    if (profile.department.isNotEmpty)
-                      _infoChip(palette, 'Dept', profile.department),
+                    if (profile.isLinked)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE8F5E9),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text(
+                          'Linked',
+                          style: TextStyle(
+                            color: Color(0xFF2E7D32),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
                     if (profile.isClassTeacher)
-                      _infoChip(
-                        palette,
-                        'Role',
-                        'Class Teacher',
-                        highlight: true,
+                      Container(
+                        margin: const EdgeInsets.only(left: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE3F2FD),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text(
+                          'Class Teacher',
+                          style: TextStyle(
+                            color: Color(0xFF1565C0),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
-                    if (profile.generatedUserId.isNotEmpty)
-                      _infoChip(
-                        palette,
-                        'User ID',
-                        profile.generatedUserId,
-                        highlight: true,
-                      ),
-                    _infoChip(
-                      palette,
-                      profile.isLinked ? 'Account Ready' : 'Login Pending',
-                      profile.isLinked
-                          ? (profile.linkedUserEmail.isEmpty
-                                ? 'Account connected'
-                                : profile.linkedUserEmail)
-                          : 'Generate login from this record',
-                      highlight: profile.isLinked,
-                      warning: !profile.isLinked,
-                    ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                if (profile.teacherEmail.isNotEmpty)
-                  Text(
-                    'Email: ${profile.teacherEmail}',
-                    style: TextStyle(color: palette.subtext),
-                  ),
-                if (profile.phone.isNotEmpty)
-                  Text(
-                    'Phone: ${profile.phone}',
-                    style: TextStyle(color: palette.subtext),
-                  ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    _compactChip(palette, 'Emp: ${profile.employeeId}'),
+                    _compactChip(
+                      palette,
+                      'Class: ${profile.className}-${profile.section}',
+                    ),
+                    _compactChip(palette, 'Subject: ${profile.subject}'),
+                    if (profile.generatedUserId.isNotEmpty)
+                      _compactChip(
+                        palette,
+                        'ID: ${profile.generatedUserId}',
+                        highlight: true,
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 4),
                 Text(
-                  'Status: ${profile.status}',
-                  style: TextStyle(color: palette.subtext),
+                  '${profile.teacherEmail}${profile.phone.isNotEmpty ? " • ${profile.phone}" : ""}',
+                  style: TextStyle(
+                    color: palette.subtext,
+                    fontSize: 12,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
           Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               if (!profile.isLinked)
                 IconButton(
                   onPressed: _isSavingTeacher
                       ? null
                       : () => _generateCredentialsForProfile(profile),
-                  icon: Icon(Icons.vpn_key_outlined, color: palette.primary),
-                  tooltip: 'Generate teacher login',
+                  icon: Icon(
+                    Icons.vpn_key_outlined,
+                    color: palette.primary,
+                    size: 20,
+                  ),
+                  tooltip: 'Generate login',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
                 ),
               IconButton(
                 onPressed: () => _editTeacher(profile),
-                icon: Icon(Icons.edit_outlined, color: palette.primary),
-                tooltip: 'Edit teacher record',
-              ),
-              if (profile.generatedUserId.isNotEmpty)
-                IconButton(
-                  onPressed: () =>
-                      _copyText('User ID', profile.generatedUserId),
-                  icon: Icon(Icons.copy_outlined, color: palette.primary),
-                  tooltip: 'Copy user ID',
+                icon: Icon(
+                  Icons.edit_outlined,
+                  color: palette.primary,
+                  size: 20,
                 ),
+                tooltip: 'Edit',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _compactChip(
+    AppThemePalette palette,
+    String text, {
+    bool highlight = false,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: highlight ? palette.softCard : palette.surfaceAlt,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: palette.text,
+          fontSize: 11,
+          fontWeight: highlight ? FontWeight.w600 : FontWeight.w500,
+        ),
       ),
     );
   }

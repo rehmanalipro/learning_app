@@ -111,12 +111,11 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                         alignment: WrapAlignment.center,
                         children: [
                           _SuggestionChip('How to mark attendance?', _chatbot),
-                          _SuggestionChip(
-                            'Homework submit kaise hota hai?',
-                            _chatbot,
-                          ),
-                          _SuggestionChip('Result kahan dekhen?', _chatbot),
+                          _SuggestionChip('How to submit homework?', _chatbot),
+                          _SuggestionChip('How to check results?', _chatbot),
                           _SuggestionChip('How to create a quiz?', _chatbot),
+                          _SuggestionChip('Change password', _chatbot),
+                          _SuggestionChip('Dark mode settings', _chatbot),
                         ],
                       ),
                     ],

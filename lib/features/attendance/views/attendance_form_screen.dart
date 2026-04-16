@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../core/services/firebase_service.dart';
 import '../../../core/theme/app_theme_helper.dart';
 import '../../../shared/widgets/app_screen_header.dart';
 import '../../../shared/widgets/app_refresh_scope.dart';
@@ -19,18 +20,22 @@ class AttendanceFormScreen extends StatefulWidget {
 class _AttendanceFormScreenState extends State<AttendanceFormScreen> {
   final AttendanceProvider _attendanceProvider = Get.find<AttendanceProvider>();
   final ProfileProvider _profileProvider = Get.find<ProfileProvider>();
+  final FirebaseService _firebaseService = FirebaseService();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _rollNumberController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
   DateTime _selectedMonth = DateTime.now();
+  bool _isSubmitting = false;
 
   @override
   void initState() {
     super.initState();
+    _firebaseService.initialize();
     final profile = _profileProvider.profileFor('Student');
     _nameController.text = profile.name;
     _emailController.text = profile.email;
+    _rollNumberController.text = profile.rollNumber ?? '';
   }
 
   bool _isSameMonth(DateTime a, DateTime b) {
@@ -108,7 +113,7 @@ class _AttendanceFormScreenState extends State<AttendanceFormScreen> {
     });
   }
 
-  void _submitAttendance(String className, String section) {
+  Future<void> _submitAttendance(String className, String section) async {
     if (_nameController.text.trim().isEmpty ||
         _emailController.text.trim().isEmpty ||
         _rollNumberController.text.trim().isEmpty) {
@@ -120,22 +125,37 @@ class _AttendanceFormScreenState extends State<AttendanceFormScreen> {
       return;
     }
 
-    _attendanceProvider.submitAttendance(
-      studentName: _nameController.text.trim(),
-      rollNumber: _rollNumberController.text.trim(),
-      className: className,
-      section: section,
-      email: _emailController.text.trim(),
-    );
+    setState(() => _isSubmitting = true);
+    try {
+      await _attendanceProvider.submitAttendance(
+        studentName: _nameController.text.trim(),
+        rollNumber: _rollNumberController.text.trim(),
+        className: className,
+        section: section,
+        email: _emailController.text.trim(),
+        notes: _notesController.text.trim(),
+      );
 
-    _rollNumberController.clear();
-    _notesController.clear();
-    Get.back();
-    Get.snackbar(
-      'Attendance submitted',
-      'Teacher ke panel me aapki request current time ke sath chali gayi hai.',
-      snackPosition: SnackPosition.BOTTOM,
-    );
+      _notesController.clear();
+      if (Get.isBottomSheetOpen == true) {
+        Get.back();
+      }
+      Get.snackbar(
+        'Attendance submitted',
+        'Teacher ke review panel me aapki request foran sync ho gayi hai.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } catch (e) {
+      Get.snackbar(
+        'Submission failed',
+        e.toString(),
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
   }
 
   void _openAttendanceSheet() {
@@ -146,6 +166,8 @@ class _AttendanceFormScreenState extends State<AttendanceFormScreen> {
 
     _nameController.text = profile.name;
     _emailController.text = profile.email;
+    _rollNumberController.text = profile.rollNumber ?? '';
+    _notesController.clear();
 
     Get.bottomSheet(
       Container(
@@ -234,12 +256,20 @@ class _AttendanceFormScreenState extends State<AttendanceFormScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () => _submitAttendance(className, section),
+                    onPressed: _isSubmitting
+                        ? null
+                        : () => _submitAttendance(className, section),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: palette.primary,
                       foregroundColor: palette.inverseText,
                     ),
-                    child: const Text('Submit Attendance'),
+                    child: _isSubmitting
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Submit Attendance'),
                   ),
                 ),
               ],
@@ -285,12 +315,16 @@ class _AttendanceFormScreenState extends State<AttendanceFormScreen> {
         child: const Icon(Icons.add),
       ),
       body: Obx(() {
+        final currentUid = (_firebaseService.currentUser?.uid ?? '').trim();
         final studentEntries = _attendanceProvider.attendanceEntries.where((entry) {
           final sameStudent =
-              entry.email.trim().toLowerCase() ==
-                  studentProfile.email.trim().toLowerCase() &&
-              entry.studentName.trim().toLowerCase() ==
-                  studentProfile.name.trim().toLowerCase();
+              (currentUid.isNotEmpty &&
+                  entry.studentUid.trim().isNotEmpty &&
+                  entry.studentUid.trim() == currentUid) ||
+              (entry.email.trim().toLowerCase() ==
+                      studentProfile.email.trim().toLowerCase() &&
+                  entry.studentName.trim().toLowerCase() ==
+                      studentProfile.name.trim().toLowerCase());
           final sameClass =
               (studentProfile.className == null ||
                   studentProfile.className!.isEmpty ||
@@ -467,6 +501,16 @@ class _AttendanceFormScreenState extends State<AttendanceFormScreen> {
                           'Class ${entry.className} | Section ${entry.section}',
                           style: TextStyle(color: palette.subtext),
                         ),
+                        if ((entry.notes ?? '').trim().isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            'Note: ${entry.notes!.trim()}',
+                            style: TextStyle(
+                              color: palette.subtext,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 6),
                         Text(
                           'Submitted: ${_dateLabel(entry.submittedAt)} at ${_timeLabel(entry.submittedAt)}',

@@ -9,12 +9,13 @@ import '../../core/theme/app_theme_helper.dart';
 import '../../features/profile/providers/profile_provider.dart';
 import '../../features/school/views/school_info_screen.dart';
 import '../../routes/app_routes.dart';
+import '../widgets/adaptive_layout.dart';
 
 class MainDrawer extends StatelessWidget {
   final String role;
 
   const MainDrawer({super.key, required this.role});
-
+  // This method shows a confirmation dialog when the user attempts to log out.18 to 118
   Future<bool?> _showLogoutConfirmation() {
     final dialogContext = Get.context;
     if (dialogContext == null) {
@@ -69,7 +70,7 @@ class MainDrawer extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               Text(
-                'Kya aap waqai app se logout karna chahte hain?',
+                'Are you sure you want to log out of the app?',
                 style: TextStyle(
                   color: palette.subtext,
                   fontSize: 14,
@@ -135,15 +136,24 @@ class MainDrawer extends StatelessWidget {
     final palette = context.appPalette;
     final profileProvider = Get.find<ProfileProvider>();
     final authProvider = Get.find<FirebaseAuthProvider>();
+    final drawerWidth = context.adaptiveValue<double>(
+      compact: context.isExtraNarrowViewport
+          ? MediaQuery.sizeOf(context).width * 0.92
+          : MediaQuery.sizeOf(context).width * 0.86,
+      medium: 320,
+      expanded: 340,
+      wide: 380,
+    );
 
     return Drawer(
+      width: drawerWidth.clamp(280.0, 380.0).toDouble(),
       child: Column(
         children: [
           Obx(() {
             final profile = profileProvider.profileFor(role);
             final imagePath = profile.imagePath;
             return Container(
-              height: 180,
+              height: context.isCompactViewport ? 170 : 180,
               width: double.infinity,
               color: palette.drawerHeader,
               alignment: Alignment.center,
@@ -167,16 +177,28 @@ class MainDrawer extends StatelessWidget {
                         : null,
                   ),
                   const SizedBox(height: 10),
-                  Text(
-                    profile.name,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: palette.text,
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      profile.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: palette.text,
+                      ),
                     ),
                   ),
-                  Text(
-                    profile.email,
-                    style: TextStyle(fontSize: 12, color: palette.subtext),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      profile.email,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 12, color: palette.subtext),
+                    ),
                   ),
                 ],
               ),

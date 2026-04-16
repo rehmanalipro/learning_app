@@ -48,6 +48,7 @@ service cloud.firestore {
               && exists(/databases/$(database)/documents/teachers/$(authIndexDocumentId())))
       );
     }
+    
 
     function hasPrincipalAccount() {
       return signedIn() && (
@@ -149,11 +150,12 @@ service cloud.firestore {
                         && request.resource.data.role == resource.data.role
                         && request.resource.data.className == resource.data.className
                         && request.resource.data.section == resource.data.section
-                        && request.resource.data.subject == resource.data.subject
-                        && request.resource.data.rollNumber == resource.data.rollNumber
-                        && request.resource.data.programName == resource.data.programName
-                        && request.resource.data.admissionNo == resource.data.admissionNo
-                        && request.resource.data.linkedStudentProfileId == resource.data.linkedStudentProfileId);
+                        && (!('subject' in request.resource.data) || request.resource.data.subject == resource.data.subject)
+                        && (!('rollNumber' in request.resource.data) || request.resource.data.rollNumber == resource.data.rollNumber)
+                        && (!('programName' in request.resource.data) || request.resource.data.programName == resource.data.programName)
+                        && (!('admissionNo' in request.resource.data) || request.resource.data.admissionNo == resource.data.admissionNo)
+                        && (!('linkedStudentProfileId' in request.resource.data) || request.resource.data.linkedStudentProfileId == resource.data.linkedStudentProfileId)
+                        && (!('accountDocId' in request.resource.data) || request.resource.data.accountDocId == resource.data.accountDocId));
       allow delete: if isPrincipal();
     }
 
@@ -209,9 +211,11 @@ service cloud.firestore {
                         && request.resource.data.programName == resource.data.programName
                         && request.resource.data.admissionNo == resource.data.admissionNo
                         && request.resource.data.linkedStudentProfileId == resource.data.linkedStudentProfileId
-                        && request.resource.data.userId == resource.data.userId);
+                        && request.resource.data.userId == resource.data.userId
+                        && request.resource.data.accountDocId == resource.data.accountDocId);
       allow delete: if isPrincipal();
     }
+    
 
     match /student_profiles/{studentProfileId} {
       allow read: if isPrincipal()
@@ -235,7 +239,8 @@ service cloud.firestore {
                         && request.resource.data.className == resource.data.className
                         && request.resource.data.section == resource.data.section
                         && request.resource.data.subject == resource.data.subject
-                        && request.resource.data.userId == resource.data.userId);
+                        && request.resource.data.userId == resource.data.userId
+                        && request.resource.data.accountDocId == resource.data.accountDocId);
       allow delete: if isPrincipal();
     }
 
@@ -245,9 +250,8 @@ service cloud.firestore {
       allow update: if signedIn()
                     && resource.data.authUid == request.auth.uid
                     && request.resource.data.role == resource.data.role
-                    && request.resource.data.uid == resource.data.uid
                     && request.resource.data.authUid == resource.data.authUid
-                    && request.resource.data.email == resource.data.email;
+                    && request.resource.data.accountDocId == resource.data.accountDocId;
       allow delete: if false;
     }
 
@@ -270,13 +274,34 @@ service cloud.firestore {
     match /attendance_entries/{entryId} {
       allow read: if isPrincipal()
                   || isTeacher()
-                  || (isStudent() && resource.data.email == request.auth.token.email);
+                  || (isStudent()
+                      && (resource.data.studentUid == request.auth.uid
+                          || resource.data.email == request.auth.token.email));
       allow create: if isPrincipal()
                     || (isTeacher() && request.resource.data.className == userClassName()
-                                    && request.resource.data.section == userSection());
+                                    && request.resource.data.section == userSection())
+                    || (isStudent()
+                        && request.resource.data.studentUid == request.auth.uid
+                        && request.resource.data.email == request.auth.token.email
+                        && request.resource.data.className == userClassName()
+                        && request.resource.data.section == userSection()
+                        && request.resource.data.status == 'pending'
+                        && request.resource.data.markedAt == null);
       allow update: if isPrincipal()
                     || (isTeacher() && resource.data.className == userClassName()
-                                    && resource.data.section == userSection());
+                                    && resource.data.section == userSection())
+                    || (isStudent()
+                        && resource.data.studentUid == request.auth.uid
+                        && request.resource.data.studentUid == resource.data.studentUid
+                        && request.resource.data.email == resource.data.email
+                        && request.resource.data.className == resource.data.className
+                        && request.resource.data.section == resource.data.section
+                        && request.resource.data.rollNumber == resource.data.rollNumber
+                        && request.resource.data.studentName == resource.data.studentName
+                        && request.resource.data.dateKey == resource.data.dateKey
+                        && request.resource.data.status == resource.data.status
+                        && request.resource.data.status == 'pending'
+                        && request.resource.data.markedAt == resource.data.markedAt);
       allow delete: if isPrincipal();
     }
 
@@ -382,6 +407,7 @@ service cloud.firestore {
       allow update: if isPrincipal() || isTeacher();
       allow delete: if isPrincipal();
     }
+    
 
     // ─── quiz_attempts ──────────────────────────────────────────────────────
     // Student: apni attempts read + create kar sakta hai

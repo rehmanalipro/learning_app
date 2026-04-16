@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import '../../../core/services/class_binding_service.dart';
 import '../../../core/services/class_roster_service.dart';
 import '../../../core/theme/app_theme_helper.dart';
+import '../../../shared/widgets/adaptive_layout.dart';
 import '../../../shared/widgets/app_screen_header.dart';
 import '../../../shared/widgets/app_refresh_scope.dart';
 import '../../../shared/widgets/responsive_content.dart';
@@ -49,6 +50,8 @@ class _TeacherResultScreenState extends State<TeacherResultScreen> {
   String _teacherName = 'Teacher';
   String _teacherId = '';
   String _searchQuery = '';
+  static const double _compactLayoutBreakpoint = 860;
+  static const double _stackedFieldBreakpoint = 560;
 
   bool get _isPrincipal => widget.roleLabel.toLowerCase() == 'principal';
   String get _activeClass =>
@@ -353,8 +356,12 @@ class _TeacherResultScreenState extends State<TeacherResultScreen> {
               parent: BouncingScrollPhysics(),
             ),
             child: ResponsiveContent(
-              maxWidth: 900,
-              padding: const EdgeInsets.fromLTRB(16, 18, 16, 32),
+              maxWidth: 980,
+              padding: context.adaptivePagePadding(
+                compact: const EdgeInsets.fromLTRB(12, 14, 12, 28),
+                medium: const EdgeInsets.fromLTRB(16, 18, 16, 32),
+                expanded: const EdgeInsets.fromLTRB(20, 20, 20, 36),
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -421,64 +428,77 @@ class _TeacherResultScreenState extends State<TeacherResultScreen> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: palette.border),
       ),
-      child: Wrap(
-        spacing: 16,
-        runSpacing: 8,
-        children: [
-          if (_isPrincipal) ...[
-            SizedBox(
-              width: 150,
-              child: _buildDropdown(
-                palette: palette,
-                label: 'Class',
-                initialValue: _selectedClass,
-                items: _classes,
-                onChanged: (v) async {
-                  if (v == null) return;
-                  setState(() => _selectedClass = v);
-                  await _loadRosterAndResults();
-                },
-              ),
-            ),
-            SizedBox(
-              width: 150,
-              child: _buildDropdown(
-                palette: palette,
-                label: 'Section',
-                initialValue: _selectedSection,
-                items: _sections,
-                onChanged: (v) async {
-                  if (v == null) return;
-                  setState(() => _selectedSection = v);
-                  await _loadRosterAndResults();
-                },
-              ),
-            ),
-            SizedBox(
-              width: 220,
-              child: TextField(
-                controller: _subjectController,
-                onSubmitted: (_) async => _loadRosterAndResults(),
-                decoration: InputDecoration(
-                  labelText: 'Subject',
-                  filled: true,
-                  fillColor: palette.surfaceAlt,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: palette.border),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final singleColumn = constraints.maxWidth < 540;
+          final dualColumn = constraints.maxWidth >= 540 &&
+              constraints.maxWidth < _compactLayoutBreakpoint;
+          final fieldWidth = singleColumn
+              ? constraints.maxWidth
+              : dualColumn
+              ? (constraints.maxWidth - 16) / 2
+              : 180.0;
+
+          return Wrap(
+            spacing: 16,
+            runSpacing: 10,
+            children: [
+              if (_isPrincipal) ...[
+                SizedBox(
+                  width: fieldWidth,
+                  child: _buildDropdown(
+                    palette: palette,
+                    label: 'Class',
+                    initialValue: _selectedClass,
+                    items: _classes,
+                    onChanged: (v) async {
+                      if (v == null) return;
+                      setState(() => _selectedClass = v);
+                      await _loadRosterAndResults();
+                    },
                   ),
                 ),
-              ),
-            ),
-          ] else ...[
-            _readOnlyChip(palette, 'Class', _classBinding.className.value),
-            _readOnlyChip(palette, 'Section', _classBinding.section.value),
-            _readOnlyChip(palette, 'Subject', _classBinding.subject.value),
-          ],
-        ],
+                SizedBox(
+                  width: fieldWidth,
+                  child: _buildDropdown(
+                    palette: palette,
+                    label: 'Section',
+                    initialValue: _selectedSection,
+                    items: _sections,
+                    onChanged: (v) async {
+                      if (v == null) return;
+                      setState(() => _selectedSection = v);
+                      await _loadRosterAndResults();
+                    },
+                  ),
+                ),
+                SizedBox(
+                  width: singleColumn ? constraints.maxWidth : fieldWidth * 1.4,
+                  child: TextField(
+                    controller: _subjectController,
+                    onSubmitted: (_) async => _loadRosterAndResults(),
+                    decoration: InputDecoration(
+                      labelText: 'Subject',
+                      filled: true,
+                      fillColor: palette.surfaceAlt,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: palette.border),
+                      ),
+                    ),
+                  ),
+                ),
+              ] else ...[
+                _readOnlyChip(palette, 'Class', _classBinding.className.value),
+                _readOnlyChip(palette, 'Section', _classBinding.section.value),
+                _readOnlyChip(palette, 'Subject', _classBinding.subject.value),
+              ],
+            ],
+          );
+        },
       ),
     );
   }
@@ -503,34 +523,48 @@ class _TeacherResultScreenState extends State<TeacherResultScreen> {
   }
 
   Widget _buildDropdownRow(AppThemePalette palette) {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildDropdown(
-            palette: palette,
-            label: 'Term',
-            initialValue: _selectedTerm,
-            items: _terms,
-            onChanged: (v) async {
-              setState(() => _selectedTerm = v!);
-              await _loadExistingResults();
-            },
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildDropdown(
-            palette: palette,
-            label: 'Exam Type',
-            initialValue: _selectedExamType,
-            items: _examTypes,
-            onChanged: (v) async {
-              setState(() => _selectedExamType = v!);
-              await _loadExistingResults();
-            },
-          ),
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < _compactLayoutBreakpoint;
+        final termDropdown = _buildDropdown(
+          palette: palette,
+          label: 'Term',
+          initialValue: _selectedTerm,
+          items: _terms,
+          onChanged: (v) async {
+            setState(() => _selectedTerm = v!);
+            await _loadExistingResults();
+          },
+        );
+        final examTypeDropdown = _buildDropdown(
+          palette: palette,
+          label: 'Exam Type',
+          initialValue: _selectedExamType,
+          items: _examTypes,
+          onChanged: (v) async {
+            setState(() => _selectedExamType = v!);
+            await _loadExistingResults();
+          },
+        );
+
+        if (isCompact) {
+          return Column(
+            children: [
+              termDropdown,
+              const SizedBox(height: 12),
+              examTypeDropdown,
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(child: termDropdown),
+            const SizedBox(width: 12),
+            Expanded(child: examTypeDropdown),
+          ],
+        );
+      },
     );
   }
 
@@ -560,27 +594,25 @@ class _TeacherResultScreenState extends State<TeacherResultScreen> {
             style: TextStyle(color: palette.subtext, height: 1.4),
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _commonMaxController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: InputDecoration(
-                    labelText: 'Common Max Marks',
-                    isDense: true,
-                    filled: true,
-                    fillColor: palette.surfaceAlt,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isCompact = constraints.maxWidth < _compactLayoutBreakpoint;
+              final maxField = TextField(
+                controller: _commonMaxController,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: InputDecoration(
+                  labelText: 'Common Max Marks',
+                  isDense: true,
+                  filled: true,
+                  fillColor: palette.surfaceAlt,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              ElevatedButton.icon(
+              );
+              final applyButton = ElevatedButton.icon(
                 onPressed: _applyCommonMaxScore,
                 icon: const Icon(Icons.auto_fix_high_outlined),
                 label: const Text('Apply to All'),
@@ -592,8 +624,23 @@ class _TeacherResultScreenState extends State<TeacherResultScreen> {
                     vertical: 14,
                   ),
                 ),
-              ),
-            ],
+              );
+
+              if (isCompact) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [maxField, const SizedBox(height: 12), applyButton],
+                );
+              }
+
+              return Row(
+                children: [
+                  Expanded(child: maxField),
+                  const SizedBox(width: 12),
+                  applyButton,
+                ],
+              );
+            },
           ),
           const SizedBox(height: 10),
           Text(
@@ -708,44 +755,6 @@ class _TeacherResultScreenState extends State<TeacherResultScreen> {
     );
   }
 
-  Widget _statusChip(
-    AppThemePalette palette, {
-    required IconData icon,
-    required String label,
-    bool highlighted = false,
-    bool warning = false,
-  }) {
-    final backgroundColor = warning
-        ? const Color(0xFFFFF4E5)
-        : highlighted
-        ? palette.softCard
-        : palette.surfaceAlt;
-    final foregroundColor = warning ? const Color(0xFFB96A00) : palette.text;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: foregroundColor),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(
-              color: foregroundColor,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildDropdown({
     required AppThemePalette palette,
     required String label,
@@ -755,6 +764,7 @@ class _TeacherResultScreenState extends State<TeacherResultScreen> {
   }) {
     return DropdownButtonFormField<String>(
       initialValue: initialValue,
+      isExpanded: true,
       decoration: InputDecoration(
         labelText: label,
         filled: true,
@@ -769,6 +779,165 @@ class _TeacherResultScreenState extends State<TeacherResultScreen> {
           .map((item) => DropdownMenuItem(value: item, child: Text(item)))
           .toList(growable: false),
       onChanged: onChanged,
+    );
+  }
+
+  Widget _buildMarkInput({
+    required TextEditingController? controller,
+    required String label,
+  }) {
+    return TextField(
+      controller: controller,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      decoration: InputDecoration(
+        labelText: label,
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 12,
+        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
+
+  Widget _buildMarkEditors(String studentKey, {required bool stacked}) {
+    final scoreField = _buildMarkInput(
+      controller: _scoreControllers[studentKey],
+      label: 'Score',
+    );
+    final maxField = _buildMarkInput(
+      controller: _maxScoreControllers[studentKey],
+      label: 'Max',
+    );
+
+    if (stacked) {
+      return Column(
+        children: [scoreField, const SizedBox(height: 10), maxField],
+      );
+    }
+
+    return Row(
+      children: [
+        Expanded(child: scoreField),
+        const SizedBox(width: 8),
+        Expanded(child: maxField),
+      ],
+    );
+  }
+
+  Widget _buildStudentActions(
+    AppThemePalette palette,
+    Map<String, dynamic> student, {
+    required ResultModel? existing,
+    required bool stacked,
+  }) {
+    final saveButton = IconButton(
+      tooltip: 'Save student result',
+      onPressed: () => _saveSingleResult(student),
+      style: IconButton.styleFrom(backgroundColor: palette.softCard),
+      icon: Icon(Icons.save_outlined, color: palette.primary),
+    );
+    final deleteButton = IconButton(
+      tooltip: 'Delete student result',
+      onPressed: existing == null ? null : () => _deleteSingleResult(student),
+      style: IconButton.styleFrom(backgroundColor: const Color(0xFFFFF1F1)),
+      icon: const Icon(Icons.delete_outline, color: Color(0xFFD64545)),
+    );
+
+    if (stacked) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [saveButton, const SizedBox(height: 6), deleteButton],
+      );
+    }
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      alignment: WrapAlignment.end,
+      children: [saveButton, deleteButton],
+    );
+  }
+
+  Widget _buildStudentIdentity(
+    AppThemePalette palette, {
+    required String name,
+    required String email,
+    required String userId,
+    required String admissionNo,
+    required String rollNumber,
+    required String shortKey,
+    required ResultModel? existing,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          name,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(color: palette.text, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _identityChip(
+              palette,
+              icon: Icons.badge_outlined,
+              label: rollNumber.isEmpty
+                  ? 'Roll No missing'
+                  : 'Roll No: $rollNumber',
+              warning: rollNumber.isEmpty,
+            ),
+            _identityChip(
+              palette,
+              icon: Icons.confirmation_number_outlined,
+              label: admissionNo.isEmpty
+                  ? 'Admission missing'
+                  : 'Admission: $admissionNo',
+              warning: admissionNo.isEmpty,
+            ),
+            _identityChip(
+              palette,
+              icon: Icons.fingerprint_outlined,
+              label: 'Record: $shortKey',
+            ),
+            if (userId.isNotEmpty)
+              _identityChip(
+                palette,
+                icon: Icons.person_pin_circle_outlined,
+                label: 'User ID: $userId',
+              ),
+          ],
+        ),
+        if (email.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(
+              email,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: palette.subtext, fontSize: 12),
+            ),
+          ),
+        if (rollNumber.isNotEmpty)
+          Text(
+            'Search works with user ID, roll number, admission number, and linked email.',
+            style: TextStyle(color: palette.subtext, fontSize: 11),
+          ),
+        if (existing != null)
+          Text(
+            'Saved for ${existing.term} | ${existing.examType}',
+            style: TextStyle(
+              color: palette.primary,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+      ],
     );
   }
 
@@ -815,147 +984,57 @@ class _TeacherResultScreenState extends State<TeacherResultScreen> {
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: palette.border),
               ),
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: Column(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final isCompact =
+                      constraints.maxWidth < _compactLayoutBreakpoint;
+                  final stackFields =
+                      constraints.maxWidth < _stackedFieldBreakpoint;
+                  final identity = _buildStudentIdentity(
+                    palette,
+                    name: name,
+                    email: email,
+                    userId: userId,
+                    admissionNo: admissionNo,
+                    rollNumber: rollNumber,
+                    shortKey: shortKey,
+                    existing: existing,
+                  );
+                  final markEditors = _buildMarkEditors(
+                    studentKey,
+                    stacked: stackFields,
+                  );
+                  final actions = _buildStudentActions(
+                    palette,
+                    student,
+                    existing: existing,
+                    stacked: !isCompact,
+                  );
+
+                  if (isCompact) {
+                    return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          name,
-                          style: TextStyle(
-                            color: palette.text,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            _identityChip(
-                              palette,
-                              icon: Icons.badge_outlined,
-                              label: rollNumber.isEmpty
-                                  ? 'Roll No missing'
-                                  : 'Roll No: $rollNumber',
-                              warning: rollNumber.isEmpty,
-                            ),
-                            _identityChip(
-                              palette,
-                              icon: Icons.confirmation_number_outlined,
-                              label: admissionNo.isEmpty
-                                  ? 'Admission missing'
-                                  : 'Admission: $admissionNo',
-                              warning: admissionNo.isEmpty,
-                            ),
-                            _identityChip(
-                              palette,
-                              icon: Icons.fingerprint_outlined,
-                              label: 'Record: $shortKey',
-                            ),
-                            if (userId.isNotEmpty)
-                              _identityChip(
-                                palette,
-                                icon: Icons.person_pin_circle_outlined,
-                                label: 'User ID: $userId',
-                              ),
-                          ],
-                        ),
-                        if (email.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 6),
-                            child: Text(
-                              email,
-                              style: TextStyle(
-                                color: palette.subtext,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                        if (rollNumber.isNotEmpty)
-                          Text(
-                            'Search works with user ID, roll number, admission number, and linked email.',
-                            style: TextStyle(
-                              color: palette.subtext,
-                              fontSize: 11,
-                            ),
-                          ),
-                        if (existing != null)
-                          Text(
-                            'Saved for ${existing.term} | ${existing.examType}',
-                            style: TextStyle(
-                              color: palette.primary,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
+                        identity,
+                        const SizedBox(height: 14),
+                        markEditors,
+                        const SizedBox(height: 12),
+                        Align(alignment: Alignment.centerRight, child: actions),
                       ],
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    flex: 2,
-                    child: TextField(
-                      controller: _scoreControllers[studentKey],
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      decoration: InputDecoration(
-                        labelText: 'Score',
-                        isDense: true,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    flex: 2,
-                    child: TextField(
-                      controller: _maxScoreControllers[studentKey],
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      decoration: InputDecoration(
-                        labelText: 'Max',
-                        isDense: true,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Column(
+                    );
+                  }
+
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      IconButton(
-                        tooltip: 'Save student result',
-                        onPressed: () => _saveSingleResult(student),
-                        style: IconButton.styleFrom(
-                          backgroundColor: palette.softCard,
-                        ),
-                        icon: Icon(Icons.save_outlined, color: palette.primary),
-                      ),
-                      const SizedBox(height: 6),
-                      IconButton(
-                        tooltip: 'Delete student result',
-                        onPressed: existing == null
-                            ? null
-                            : () => _deleteSingleResult(student),
-                        style: IconButton.styleFrom(
-                          backgroundColor: const Color(0xFFFFF1F1),
-                        ),
-                        icon: const Icon(
-                          Icons.delete_outline,
-                          color: Color(0xFFD64545),
-                        ),
-                      ),
+                      Expanded(flex: 4, child: identity),
+                      const SizedBox(width: 12),
+                      Expanded(flex: 2, child: markEditors),
+                      const SizedBox(width: 8),
+                      actions,
                     ],
-                  ),
-                ],
+                  );
+                },
               ),
             );
           })
@@ -969,31 +1048,99 @@ class _TeacherResultScreenState extends State<TeacherResultScreen> {
     required String label,
     bool warning = false,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: warning ? const Color(0xFFFFF1F1) : palette.surfaceAlt,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: 14,
-            color: warning ? const Color(0xFFD64545) : palette.subtext,
-          ),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(
-              color: warning ? const Color(0xFFD64545) : palette.text,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.hasBoundedWidth
+            ? (constraints.maxWidth < 280 ? constraints.maxWidth : 280.0)
+            : 280.0;
+
+        return ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxWidth),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: warning ? const Color(0xFFFFF1F1) : palette.surfaceAlt,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
+                  size: 14,
+                  color: warning ? const Color(0xFFD64545) : palette.subtext,
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: warning ? const Color(0xFFD64545) : palette.text,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
-      ),
+        );
+      },
+    );
+  }
+
+  Widget _statusChip(
+    AppThemePalette palette, {
+    required IconData icon,
+    required String label,
+    bool highlighted = false,
+    bool warning = false,
+  }) {
+    final backgroundColor = warning
+        ? const Color(0xFFFFF4E5)
+        : highlighted
+        ? palette.softCard
+        : palette.surfaceAlt;
+    final foregroundColor = warning ? const Color(0xFFB96A00) : palette.text;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.hasBoundedWidth
+            ? constraints.maxWidth
+            : 360.0;
+
+        return ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxWidth),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: backgroundColor,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 16, color: foregroundColor),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: foregroundColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

@@ -9,6 +9,8 @@ import '../models/attendance_entry_model.dart';
 import '../providers/attendance_provider.dart';
 import '../services/attendance_service.dart';
 
+enum _ReviewStatusFilter { all, present, absent }
+
 class TeacherAttendanceScreen extends StatefulWidget {
   const TeacherAttendanceScreen({super.key});
 
@@ -33,6 +35,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen>
   final List<String> _sections = const ['All', 'A', 'B', 'C'];
   String _selectedClass = 'All';
   String _selectedSection = 'All';
+  _ReviewStatusFilter _selectedReviewFilter = _ReviewStatusFilter.all;
   DateTime _startDate = DateTime(DateTime.now().year, DateTime.now().month, 1);
   DateTime _endDate = DateTime.now();
 
@@ -40,6 +43,15 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    final boundClass = _classBinding.className.value.trim();
+    final boundSection = _classBinding.section.value.trim().toUpperCase();
+    if (_classes.contains(boundClass)) {
+      _selectedClass = boundClass;
+    }
+    if (_sections.contains(boundSection)) {
+      _selectedSection = boundSection;
+    }
+    _attendanceProvider.loadEntries();
     _loadRoster();
   }
 
@@ -146,6 +158,28 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen>
       date.minute,
     );
     return !itemDate.isBefore(_startDate) && !itemDate.isAfter(_endDate);
+  }
+
+  bool _matchesReviewFilter(AttendanceEntryModel entry) {
+    switch (_selectedReviewFilter) {
+      case _ReviewStatusFilter.present:
+        return entry.status == AttendanceStatus.present;
+      case _ReviewStatusFilter.absent:
+        return entry.status == AttendanceStatus.absent;
+      case _ReviewStatusFilter.all:
+        return true;
+    }
+  }
+
+  String _reviewFilterLabel() {
+    switch (_selectedReviewFilter) {
+      case _ReviewStatusFilter.present:
+        return 'Present only';
+      case _ReviewStatusFilter.absent:
+        return 'Absent only';
+      case _ReviewStatusFilter.all:
+        return 'All requests';
+    }
   }
 
   @override
@@ -326,7 +360,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen>
     return AppRefreshScope(
       onRefresh: _attendanceProvider.loadEntries,
       child: Obx(() {
-        final filteredEntries =
+        final matchingEntries =
             entries
                 .where((entry) {
                   final classMatch =
@@ -341,14 +375,15 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen>
                 .toList(growable: false)
               ..sort((a, b) => b.submittedAt.compareTo(a.submittedAt));
 
-        final presentCount = filteredEntries
+        final filteredEntries = matchingEntries
+            .where(_matchesReviewFilter)
+            .toList(growable: false);
+
+        final presentCount = matchingEntries
             .where((e) => e.status == AttendanceStatus.present)
             .length;
-        final absentCount = filteredEntries
+        final absentCount = matchingEntries
             .where((e) => e.status == AttendanceStatus.absent)
-            .length;
-        final pendingCount = filteredEntries
-            .where((e) => e.status == AttendanceStatus.pending)
             .length;
 
         return Column(
@@ -499,30 +534,87 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen>
             Container(
               color: palette.surface,
               padding: const EdgeInsets.all(12),
-              child: Row(
+              child: Column(
                 children: [
-                  Expanded(
-                    child: _SummaryCard(
-                      title: 'Present',
-                      value: '$presentCount',
-                      color: const Color(0xFF15803D),
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _SummaryCard(
+                          title: 'Present',
+                          value: '$presentCount',
+                          color: const Color(0xFF15803D),
+                          isSelected:
+                              _selectedReviewFilter ==
+                              _ReviewStatusFilter.present,
+                          onTap: () {
+                            setState(() {
+                              _selectedReviewFilter =
+                                  _selectedReviewFilter ==
+                                          _ReviewStatusFilter.present
+                                      ? _ReviewStatusFilter.all
+                                      : _ReviewStatusFilter.present;
+                            });
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _SummaryCard(
+                          title: 'Absent',
+                          value: '$absentCount',
+                          color: const Color(0xFFB91C1C),
+                          isSelected:
+                              _selectedReviewFilter ==
+                              _ReviewStatusFilter.absent,
+                          onTap: () {
+                            setState(() {
+                              _selectedReviewFilter =
+                                  _selectedReviewFilter ==
+                                          _ReviewStatusFilter.absent
+                                      ? _ReviewStatusFilter.all
+                                      : _ReviewStatusFilter.absent;
+                            });
+                          },
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _SummaryCard(
-                      title: 'Absent',
-                      value: '$absentCount',
-                      color: const Color(0xFFB91C1C),
-                    ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Text(
+                        'Showing: ${_reviewFilterLabel()}',
+                        style: TextStyle(
+                          color: palette.subtext,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const Spacer(),
+                      TextButton(
+                        onPressed: _selectedReviewFilter == _ReviewStatusFilter.all
+                            ? null
+                            : () {
+                                setState(() {
+                                  _selectedReviewFilter =
+                                      _ReviewStatusFilter.all;
+                                });
+                              },
+                        child: const Text('Show all'),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _SummaryCard(
-                      title: 'Pending',
-                      value: '$pendingCount',
-                      color: const Color(0xFFB45309),
-                    ),
+                  if (matchingEntries.any(
+                    (entry) => entry.status == AttendanceStatus.pending,
+                  ))
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Pending requests default list me show hoti rahengi jab filter All ho.',
+                        style: TextStyle(
+                          color: palette.subtext,
+                          fontSize: 12,
+                        ),
+                      ),
                   ),
                 ],
               ),
@@ -610,26 +702,42 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen>
                             children: [
                               Expanded(
                                 flex: 5,
-                                child: Row(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Expanded(
-                                      child: Text(
-                                        entry.studentName,
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            entry.studentName,
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                              color: palette.text,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'Roll ${entry.rollNumber}',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: palette.text,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    if ((entry.notes ?? '').trim().isNotEmpty) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Note: ${entry.notes!.trim()}',
                                         style: TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                          color: palette.text,
+                                          color: palette.subtext,
+                                          fontSize: 12,
+                                          fontStyle: FontStyle.italic,
                                         ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Roll ${entry.rollNumber}',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: palette.text,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
+                                    ],
                                   ],
                                 ),
                               ),
@@ -794,42 +902,57 @@ class _SummaryCard extends StatelessWidget {
   final String title;
   final String value;
   final Color color;
+  final bool isSelected;
+  final VoidCallback? onTap;
 
   const _SummaryCard({
     required this.title,
     required this.value,
     required this.color,
+    this.isSelected = false,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              color: color,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: isSelected ? 0.18 : 0.10),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isSelected ? color : color.withValues(alpha: 0.14),
+              width: isSelected ? 1.4 : 1,
             ),
           ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: TextStyle(
-              color: color,
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                value,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

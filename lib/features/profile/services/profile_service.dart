@@ -82,7 +82,7 @@ class ProfileService extends GetxService {
   Future<void> saveProfile(ProfileModel profile) async {
     final key = profile.role.toLowerCase();
 
-    // Also update users collection if user is logged in with this role
+    // Update users collection if user is logged in with this role
     final uid = _firebaseService.currentUser?.uid;
     if (uid != null) {
       final userData = await _firebaseService.getUserData(uid);
@@ -101,6 +101,36 @@ class ProfileService extends GetxService {
           'imagePath': profile.imagePath,
           'updatedAt': DateTime.now().toIso8601String(),
         });
+
+        // Also update role-specific collection
+        try {
+          String collection = '';
+          if (key == 'student') {
+            collection = 'students';
+          } else if (key == 'teacher') {
+            collection = 'teachers';
+          } else if (key == 'principal') {
+            collection = 'principals';
+          }
+
+          if (collection.isNotEmpty) {
+            await _store.setCollectionDocument(
+              collectionPath: collection,
+              id: uid,
+              data: {
+                'name': profile.name,
+                'email': profile.email,
+                'phone': profile.phone,
+                'imagePath': profile.imagePath,
+                'updatedAt': DateTime.now().toIso8601String(),
+              },
+              merge: true,
+            );
+          }
+        } catch (e) {
+          // ignore: avoid_print
+          print('[Profile Service] Role collection update error: $e');
+        }
       }
     }
 
@@ -112,7 +142,10 @@ class ProfileService extends GetxService {
         data: profile.toMap(),
         merge: true,
       );
-    } catch (_) {}
+    } catch (e) {
+      // ignore: avoid_print
+      print('[Profile Service] Legacy profiles update error: $e');
+    }
 
     profiles[key] = profile;
   }

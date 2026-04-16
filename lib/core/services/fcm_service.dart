@@ -25,6 +25,7 @@ class FcmService extends GetxService {
       FlutterLocalNotificationsPlugin();
 
   final RxString fcmToken = ''.obs;
+  bool _localNotificationsReady = false;
 
   @override
   Future<void> onInit() async {
@@ -38,6 +39,8 @@ class FcmService extends GetxService {
   // ── Local Notifications Setup ─────────────────────────────────────────────
 
   Future<void> _initLocalNotifications() async {
+    if (_localNotificationsReady) return;
+
     const androidSettings = AndroidInitializationSettings(
       '@mipmap/ic_launcher',
     );
@@ -62,6 +65,7 @@ class FcmService extends GetxService {
           AndroidFlutterLocalNotificationsPlugin
         >()
         ?.createNotificationChannel(channel);
+    _localNotificationsReady = true;
   }
 
   void _onNotificationTap(NotificationResponse response) {
@@ -155,6 +159,31 @@ class FcmService extends GetxService {
     );
   }
 
+  Future<void> showLocalAlert({
+    required String title,
+    required String body,
+    Map<String, dynamic> data = const {},
+  }) async {
+    await _initLocalNotifications();
+
+    const androidDetails = AndroidNotificationDetails(
+      _channelId,
+      _channelName,
+      channelDescription: _channelDesc,
+      importance: Importance.high,
+      priority: Priority.high,
+      icon: '@mipmap/ic_launcher',
+    );
+
+    await _localNotifications.show(
+      id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      title: title,
+      body: body,
+      notificationDetails: const NotificationDetails(android: androidDetails),
+      payload: jsonEncode(data),
+    );
+  }
+
   /// Notification data ke basis par screen navigate karo.
   void _handleNavigationFromData(Map<String, dynamic> data) {
     final type = data['type'] as String? ?? '';
@@ -173,6 +202,9 @@ class FcmService extends GetxService {
         break;
       case 'result':
         Get.toNamed('/student-result');
+        break;
+      case 'attendance':
+        Get.toNamed('/attendance-form');
         break;
       default:
         break;

@@ -39,49 +39,164 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isSaving = false;
 
   Future<void> _pickImage(ImageSource source) async {
-    final image = await _picker.pickImage(source: source, imageQuality: 80);
-    if (image == null) return;
+    try {
+      // ignore: avoid_print
+      print('[Profile] Starting image picker with source: $source');
+      
+      final image = await _picker.pickImage(
+        source: source,
+        imageQuality: 80,
+        maxWidth: 1024,
+        maxHeight: 1024,
+      );
+      
+      if (image == null) {
+        // ignore: avoid_print
+        print('[Profile] Image picker cancelled by user');
+        return;
+      }
 
-    setState(() {
-      _imagePath = image.path;
-    });
+      // ignore: avoid_print
+      print('[Profile] Image picker returned path: ${image.path}');
+      // ignore: avoid_print
+      print('[Profile] Image name: ${image.name}');
+      // ignore: avoid_print
+      print('[Profile] Image mimeType: ${image.mimeType}');
+
+      // Read file as bytes to verify accessibility
+      final bytes = await image.readAsBytes();
+      final fileSize = bytes.length;
+      
+      // ignore: avoid_print
+      print('[Profile] Image read successfully, Size: $fileSize bytes');
+
+      if (fileSize > 5 * 1024 * 1024) {
+        // 5MB limit
+        Get.snackbar(
+          'File Too Large',
+          'Please select an image smaller than 5MB',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: const Color(0xFFD64545),
+          colorText: Colors.white,
+        );
+        return;
+      }
+
+      // Store the XFile path (works with both file paths and content URIs)
+      setState(() {
+        _imagePath = image.path;
+      });
+      
+      // ignore: avoid_print
+      print('[Profile] Image path set successfully: $_imagePath');
+      
+      Get.snackbar(
+        'Image Selected',
+        'Image ready to upload. Tap "Save Profile" to upload.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFF129C63),
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+      );
+    } catch (e) {
+      // ignore: avoid_print
+      print('[Profile] Image picker error: $e');
+      // ignore: avoid_print
+      print('[Profile] Error type: ${e.runtimeType}');
+      Get.snackbar(
+        'Error',
+        'Failed to select image: ${e.toString()}',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFFD64545),
+        colorText: Colors.white,
+      );
+    }
   }
 
   void _showImageOptions() {
+    final palette = context.appPalette;
     Get.bottomSheet(
       Container(
-        color: Colors.white,
-        child: Wrap(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Gallery'),
-              onTap: () {
-                Get.back();
-                _pickImage(ImageSource.gallery);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.camera_alt_outlined),
-              title: const Text('Camera'),
-              onTap: () {
-                Get.back();
-                _pickImage(ImageSource.camera);
-              },
-            ),
-            if (_imagePath != null && _imagePath!.isNotEmpty)
+        decoration: BoxDecoration(
+          color: palette.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: SafeArea(
+          child: Wrap(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  'Profile Photo',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: palette.text,
+                  ),
+                ),
+              ),
               ListTile(
-                leading: const Icon(Icons.delete_outline, color: Colors.red),
-                title: const Text('Remove Photo'),
+                leading: Icon(Icons.photo_library_outlined, color: palette.primary),
+                title: Text('Choose from Gallery', style: TextStyle(color: palette.text)),
                 onTap: () {
                   Get.back();
-                  setState(() {
-                    _imagePath = null;
-                  });
+                  _pickImage(ImageSource.gallery);
                 },
               ),
-          ],
+              ListTile(
+                leading: Icon(Icons.camera_alt_outlined, color: palette.primary),
+                title: Text('Take Photo', style: TextStyle(color: palette.text)),
+                onTap: () {
+                  Get.back();
+                  _pickImage(ImageSource.camera);
+                },
+              ),
+              if (_imagePath != null && _imagePath!.isNotEmpty)
+                ListTile(
+                  leading: const Icon(Icons.delete_outline, color: Colors.red),
+                  title: const Text('Remove Photo', style: TextStyle(color: Colors.red)),
+                  onTap: () {
+                    Get.back();
+                    _confirmDeletePhoto();
+                  },
+                ),
+              const SizedBox(height: 8),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  void _confirmDeletePhoto() {
+    final palette = context.appPalette;
+    Get.dialog(
+      AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Remove Photo?', style: TextStyle(color: palette.text)),
+        content: Text(
+          'Are you sure you want to remove your profile photo?',
+          style: TextStyle(color: palette.subtext),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Get.back();
+              setState(() {
+                _imagePath = '';  // Empty string signals removal
+              });
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Remove'),
+          ),
+        ],
       ),
     );
   }
@@ -96,65 +211,209 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _saveProfile() async {
     setState(() => _isSaving = true);
+    
+    // ignore: avoid_print
+    print('[Profile] Starting save profile...');
+    // ignore: avoid_print
+    print('[Profile] Current _imagePath: $_imagePath');
+    
     try {
+      final currentProfile = _profileProvider.profileFor(widget.role);
+      final existingImagePath = currentProfile.imagePath;
+      
+      // ignore: avoid_print
+      print('[Profile] Existing image path from profile: $existingImagePath');
+      
+      // Check if user wants to remove photo (empty string)
+      final isRemovingPhoto = _imagePath != null && _imagePath!.isEmpty;
+      
+      // Check if user selected a new local image
       final hasNewLocalImage =
           _imagePath != null &&
           _imagePath!.isNotEmpty &&
           !_imagePath!.startsWith('http');
 
-      String? uploadedImageUrl;
-      if (hasNewLocalImage) {
+      // ignore: avoid_print
+      print('[Profile] isRemovingPhoto: $isRemovingPhoto');
+      // ignore: avoid_print
+      print('[Profile] hasNewLocalImage: $hasNewLocalImage');
+
+      String? finalImagePath;
+      
+      if (isRemovingPhoto) {
+        // User wants to remove photo - set to null
+        finalImagePath = null;
+        // ignore: avoid_print
+        print('[Profile] Removing photo');
+      } else if (hasNewLocalImage) {
+        // ignore: avoid_print
+        print('[Profile] Uploading new image from: $_imagePath');
+        
         _firebaseService.initialize();
         final currentUid = _firebaseService.currentUser?.uid;
         if (currentUid == null || currentUid.isEmpty) {
           throw Exception('User is not signed in');
         }
 
-        uploadedImageUrl = await _storageService.uploadFile(
-          localPath: _imagePath!,
-          folder: 'profiles/$currentUid',
+        // Show uploading message
+        Get.snackbar(
+          'Uploading',
+          'Uploading profile image...',
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 2),
         );
 
-        if (uploadedImageUrl == null) {
-          throw Exception('Profile image upload failed');
+        // Use XFile for upload (handles both file paths and content URIs)
+        try {
+          finalImagePath = await _storageService.uploadFile(
+            localPath: _imagePath!,
+            folder: 'profiles/$currentUid',
+            fileName: 'profile_${DateTime.now().millisecondsSinceEpoch}.jpg',
+          );
+
+          if (finalImagePath == null || finalImagePath.isEmpty) {
+            throw Exception('Profile image upload failed - no URL returned');
+          }
+
+          // ignore: avoid_print
+          print('[Profile] Image uploaded successfully: $finalImagePath');
+        } catch (uploadError) {
+          // ignore: avoid_print
+          print('[Profile] Upload error: $uploadError');
+          rethrow;
+        }
+      } else {
+        // Keep existing image path (either from _imagePath or from current profile)
+        finalImagePath = _imagePath ?? existingImagePath;
+        // ignore: avoid_print
+        print('[Profile] Keeping existing image: $finalImagePath');
+      }
+
+      // ignore: avoid_print
+      print('[Profile] Final image path to save: $finalImagePath');
+
+      // Validate that if we have an HTTP URL, it's properly formatted
+      if (finalImagePath != null && 
+          finalImagePath.startsWith('http') && 
+          !finalImagePath.contains('firebasestorage.googleapis.com')) {
+        // ignore: avoid_print
+        print('[Profile] Warning: Image path does not look like a Firebase Storage URL');
+      }
+
+      try {
+        await _profileController.updateProfile(
+          role: widget.role,
+          name: _nameController.text.trim(),
+          email: _emailController.text.trim(),
+          phone: _phoneController.text.trim(),
+          className: currentProfile.className,
+          section: currentProfile.section,
+          programName: _isStudentRole ? currentProfile.programName : null,
+          admissionNo: _isStudentRole ? currentProfile.admissionNo : null,
+          rollNumber: _isStudentRole ? currentProfile.rollNumber : null,
+          linkedStudentProfileId: _isStudentRole
+              ? currentProfile.linkedStudentProfileId
+              : null,
+          imagePath: finalImagePath,
+        );
+      } catch (updateError) {
+        // ignore: avoid_print
+        print('[Profile] Update error: $updateError');
+        
+        // If the error is related to storage and we have an existing image,
+        // try again without the image path
+        final errorStr = updateError.toString().toLowerCase();
+        if ((errorStr.contains('storage') || errorStr.contains('object-not-found') || 
+             errorStr.contains('no object exists')) && 
+            finalImagePath != null && finalImagePath.startsWith('http')) {
+          // ignore: avoid_print
+          print('[Profile] Retrying without image path due to storage error');
+          
+          Get.snackbar(
+            'Warning',
+            'Your profile photo may be unavailable. Saving profile without photo...',
+            snackPosition: SnackPosition.BOTTOM,
+            backgroundColor: Colors.orange,
+            colorText: Colors.white,
+            duration: const Duration(seconds: 3),
+          );
+          
+          // Retry without the problematic image path
+          await _profileController.updateProfile(
+            role: widget.role,
+            name: _nameController.text.trim(),
+            email: _emailController.text.trim(),
+            phone: _phoneController.text.trim(),
+            className: currentProfile.className,
+            section: currentProfile.section,
+            programName: _isStudentRole ? currentProfile.programName : null,
+            admissionNo: _isStudentRole ? currentProfile.admissionNo : null,
+            rollNumber: _isStudentRole ? currentProfile.rollNumber : null,
+            linkedStudentProfileId: _isStudentRole
+                ? currentProfile.linkedStudentProfileId
+                : null,
+            imagePath: null,  // Remove the problematic image path
+          );
+          
+          if (mounted) {
+            setState(() {
+              _imagePath = null;  // Clear the image path in UI
+            });
+          }
+        } else {
+          rethrow;
         }
       }
 
-      final resolvedImagePath = uploadedImageUrl ?? _imagePath;
-      final currentProfile = _profileProvider.profileFor(widget.role);
-
-      await _profileController.updateProfile(
-        role: widget.role,
-        name: _nameController.text.trim(),
-        email: _emailController.text.trim(),
-        phone: _phoneController.text.trim(),
-        className: currentProfile.className,
-        section: currentProfile.section,
-        programName: _isStudentRole ? currentProfile.programName : null,
-        admissionNo: _isStudentRole ? currentProfile.admissionNo : null,
-        rollNumber: _isStudentRole ? currentProfile.rollNumber : null,
-        linkedStudentProfileId: _isStudentRole
-            ? currentProfile.linkedStudentProfileId
-            : null,
-        imagePath: resolvedImagePath,
-      );
-
       if (mounted) {
         setState(() {
-          _imagePath = resolvedImagePath;
+          _imagePath = finalImagePath;
         });
       }
 
+      // Reload profiles to ensure UI is updated
+      await _profileProvider.loadProfiles();
+
       Get.snackbar(
-        'Profile updated',
-        '${widget.role} profile has been saved.',
+        'Success',
+        isRemovingPhoto 
+            ? 'Profile photo removed successfully.'
+            : '${widget.role} profile has been saved successfully.',
         snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFF129C63),
+        colorText: Colors.white,
       );
-    } catch (_) {
+    } catch (e) {
+      // ignore: avoid_print
+      print('[Profile Error] Full error: $e');
+      // ignore: avoid_print
+      print('[Profile Error] Stack trace: ${StackTrace.current}');
+      
+      // Better error message
+      String errorMessage = 'Failed to save profile.';
+      final errorStr = e.toString().toLowerCase();
+      
+      if (errorStr.contains('file not found') || errorStr.contains('not accessible')) {
+        errorMessage = 'Image file not accessible. Please try selecting the image again.';
+      } else if (errorStr.contains('object-not-found') || errorStr.contains('no object exists')) {
+        errorMessage = 'Could not save profile. Please try uploading a new photo or remove the current one.';
+      } else if (errorStr.contains('permission-denied') || errorStr.contains('unauthorized')) {
+        errorMessage = 'Permission denied. Please check your account permissions.';
+      } else if (errorStr.contains('network') || errorStr.contains('connection')) {
+        errorMessage = 'Network error. Please check your internet connection.';
+      } else if (errorStr.contains('not signed in')) {
+        errorMessage = 'Please log in again to upload images.';
+      } else {
+        errorMessage = 'Failed to save profile: ${e.toString()}';
+      }
+      
       Get.snackbar(
         'Error',
-        'Failed to save profile image. Please try again.',
+        errorMessage,
         snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFFD64545),
+        colorText: Colors.white,
+        duration: const Duration(seconds: 5),
       );
     } finally {
       if (mounted) {
@@ -170,7 +429,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _nameController = TextEditingController(text: profile.name);
     _emailController = TextEditingController(text: profile.email);
     _phoneController = TextEditingController(text: profile.phone);
-    _imagePath = profile.imagePath;
+    // Safely handle imagePath - ensure it's a valid string or null
+    _imagePath = (profile.imagePath ?? '').trim().isEmpty 
+        ? null 
+        : profile.imagePath;
+    
+    // ignore: avoid_print
+    print('[Profile Init] Loaded profile with imagePath: $_imagePath');
   }
 
   @override
@@ -233,15 +498,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 if (_imagePath != null && _imagePath!.isNotEmpty) ...[
                   const SizedBox(height: 10),
                   TextButton.icon(
-                    onPressed: _isSaving
-                        ? null
-                        : () {
-                            setState(() {
-                              _imagePath = null;
-                            });
-                          },
-                    icon: const Icon(Icons.delete_outline),
-                    label: const Text('Delete current photo'),
+                    onPressed: _isSaving ? null : _confirmDeletePhoto,
+                    icon: const Icon(Icons.delete_outline, color: Colors.red),
+                    label: const Text(
+                      'Remove current photo',
+                      style: TextStyle(color: Colors.red),
+                    ),
                   ),
                 ],
                 const SizedBox(height: 24),

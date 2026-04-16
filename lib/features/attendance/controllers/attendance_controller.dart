@@ -22,6 +22,7 @@ class AttendanceController extends GetxController {
     required String section,
     required String email,
     String? photoPath,
+    String? notes,
   }) {
     return _service.submitAttendance(
       studentName: studentName,
@@ -30,6 +31,7 @@ class AttendanceController extends GetxController {
       section: section,
       email: email,
       photoPath: photoPath,
+      notes: notes,
     );
   }
 

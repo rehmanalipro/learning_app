@@ -11,11 +11,24 @@ class ChatbotService extends GetxService {
         'teacher attendance',
         'hazri',
         'attendance lag',
+        'how to mark',
+        'check attendance',
       ],
-      urduAnswer:
-          'Attendance feature mein teacher apni class ke students ki bulk hazri mark karta hai. Teacher dashboard se Attendance kholen, class select karein, students ko Present ya Absent mark karein aur save kar dein. Student apni attendance history sirf dekh sakta hai.',
-      englishAnswer:
-          'In Attendance, the teacher marks class attendance in bulk. Open Attendance from the teacher dashboard, choose the class, mark each student as Present or Absent, then save. Students can only view their attendance history.',
+      answer:
+          '📋 **Attendance Management**\n\n'
+          '**For Teachers:**\n'
+          '1. Open "Attendance" from dashboard\n'
+          '2. Select your class and section\n'
+          '3. Mark each student as Present/Absent\n'
+          '4. Click "Save" to submit\n\n'
+          '**For Students:**\n'
+          '• View your attendance history\n'
+          '• Submit attendance request (if enabled)\n'
+          '• Receive notifications when marked\n\n'
+          '**For Principal:**\n'
+          '• View all classes attendance\n'
+          '• Mark attendance for any class',
+      category: 'Attendance',
     ),
     _HelpTopic(
       keywords: [
@@ -26,25 +39,94 @@ class ChatbotService extends GetxService {
         'pdf',
         'home work',
         'homework submit',
+        'create homework',
+        'upload homework',
       ],
-      urduAnswer:
-          'Homework ke liye teacher apni class ko assignment deta hai. Student homework section se task open karta hai, apni PDF file select karta hai aur submit karta hai. Teacher submitted solutions dekh sakta hai.',
-      englishAnswer:
-          'For Homework, the teacher creates an assignment for the class. The student opens the homework item, picks a PDF file, and submits it. The teacher can then review submitted solutions.',
+      answer:
+          '📚 **Homework Management**\n\n'
+          '**For Teachers:**\n'
+          '1. Open "Homework" from dashboard\n'
+          '2. Click "Create Assignment"\n'
+          '3. Fill in title, details, due date\n'
+          '4. Upload PDF (optional)\n'
+          '5. Submit to class\n'
+          '6. Review student submissions\n\n'
+          '**For Students:**\n'
+          '1. Open "Homework" section\n'
+          '2. View assigned homework\n'
+          '3. Click "Submit Solution"\n'
+          '4. Write answer or upload PDF\n'
+          '5. Submit before due date\n\n'
+          '**Features:**\n'
+          '• PDF upload support\n'
+          '• Due date tracking\n'
+          '• Teacher feedback',
+      category: 'Homework',
     ),
     _HelpTopic(
-      keywords: ['result', 'marks', 'grade', 'exam result', 'natija', 'number'],
-      urduAnswer:
-          'Result module mein teacher class ke students ke marks enter karta hai. Save hone ke baad student apna result screen par dekh sakta hai. Agar result show na ho to dobara refresh karein ya teacher se marks confirm karein.',
-      englishAnswer:
-          'In the Result module, the teacher enters marks for students. After saving, students can view their result on the result screen. If results are missing, refresh and confirm the marks were entered by the teacher.',
+      keywords: [
+        'result',
+        'marks',
+        'grade',
+        'exam result',
+        'natija',
+        'number',
+        'score',
+        'enter marks',
+        'view result',
+      ],
+      answer:
+          '📊 **Result Management**\n\n'
+          '**For Teachers:**\n'
+          '1. Open "Result" from dashboard\n'
+          '2. Select class, term, exam type\n'
+          '3. Enter marks for each student\n'
+          '4. Set max marks for subject\n'
+          '5. Click "Save Results"\n\n'
+          '**For Students:**\n'
+          '1. Open "Result" section\n'
+          '2. View your marks by term\n'
+          '3. See subject-wise scores\n'
+          '4. Check total and percentage\n\n'
+          '**For Principal:**\n'
+          '• View all classes results\n'
+          '• Edit any student marks\n'
+          '• Generate reports\n\n'
+          '**Note:** Results appear after teacher saves them.',
+      category: 'Results',
     ),
     _HelpTopic(
-      keywords: ['quiz', 'mcq', 'test', 'create quiz', 'attempt quiz', 'quize'],
-      urduAnswer:
-          'Quiz feature mein teacher naya quiz banata hai aur student usay attempt karta hai. Student submit karte hi instant result dekh leta hai. Quiz create karne ke liye teacher quiz screen par ja kar title, questions aur answers add kare.',
-      englishAnswer:
-          'In Quiz, the teacher creates a quiz and the student attempts it. The student gets an instant result after submission. To create one, the teacher opens the quiz screen and adds the title, questions, and answers.',
+      keywords: [
+        'quiz',
+        'mcq',
+        'test',
+        'create quiz',
+        'attempt quiz',
+        'quize',
+        'question',
+        'answer',
+      ],
+      answer:
+          '🎯 **Quiz System**\n\n'
+          '**For Teachers:**\n'
+          '1. Open "Quiz" from dashboard\n'
+          '2. Click "Create Quiz"\n'
+          '3. Enter question text\n'
+          '4. Add 4 options (A, B, C, D)\n'
+          '5. Mark correct answer\n'
+          '6. Save quiz\n\n'
+          '**For Students:**\n'
+          '1. Open "Quiz" section\n'
+          '2. View available quizzes\n'
+          '3. Select a quiz to attempt\n'
+          '4. Choose your answer\n'
+          '5. Submit to see instant result\n\n'
+          '**Features:**\n'
+          '• Multiple choice questions\n'
+          '• Instant scoring\n'
+          '• Attempt history\n'
+          '• Class-specific quizzes',
+      category: 'Quiz',
     ),
     _HelpTopic(
       keywords: [
@@ -55,25 +137,100 @@ class ChatbotService extends GetxService {
         'datesheet',
         'exam routine',
         'paper',
+        'timetable',
+        'exam date',
       ],
-      urduAnswer:
-          'Exam Schedule mein teacher ya principal class ke exams ka timetable publish kar sakta hai. Student exam routine screen se dates aur subjects dekh sakta hai.',
-      englishAnswer:
-          'In Exam Schedule, the teacher or principal can publish the exam timetable for a class. Students can open the exam routine screen to view dates and subjects.',
+      answer:
+          '📅 **Exam Schedule**\n\n'
+          '**For Teachers/Principal:**\n'
+          '1. Open "Exam Routine"\n'
+          '2. Click "Add Schedule"\n'
+          '3. Select class and section\n'
+          '4. Enter subject and date\n'
+          '5. Add time, room, seat info\n'
+          '6. Upload date sheet PDF (optional)\n'
+          '7. Save schedule\n\n'
+          '**For Students:**\n'
+          '1. Open "Exam Routine"\n'
+          '2. View your class schedule\n'
+          '3. See exam dates and times\n'
+          '4. Check room and seat numbers\n'
+          '5. Download date sheet PDF\n\n'
+          '**Information Included:**\n'
+          '• Subject name\n'
+          '• Date and time\n'
+          '• Room and seat number\n'
+          '• Shift details',
+      category: 'Exam',
     ),
     _HelpTopic(
-      keywords: ['notice', 'event', 'announcement', 'post notice', 'elan'],
-      urduAnswer:
-          'Notices aur events ke liye principal school-wide updates share karta hai, jab ke teacher class-specific information de sakta hai. Related notice section ya home screen par updates nazar aayengi.',
-      englishAnswer:
-          'For notices and events, the principal can share school-wide updates and the teacher can share class-specific information. Users will see these updates in the relevant notice area or home screen.',
+      keywords: [
+        'notice',
+        'event',
+        'announcement',
+        'post notice',
+        'elan',
+        'notification',
+        'news',
+        'update',
+      ],
+      answer:
+          '📢 **Notice & Events**\n\n'
+          '**For Principal:**\n'
+          '1. Open "Notice & Events"\n'
+          '2. Click "Create Notice"\n'
+          '3. Choose scope (School-wide/Class)\n'
+          '4. Enter title and description\n'
+          '5. Select category (Notice/Event/Holiday)\n'
+          '6. Publish to students\n\n'
+          '**For Teachers:**\n'
+          '1. Create class-specific notices\n'
+          '2. Share important updates\n'
+          '3. Announce class events\n\n'
+          '**For Students:**\n'
+          '1. View all notices on home screen\n'
+          '2. See unread count badge\n'
+          '3. Get popup notifications\n'
+          '4. Filter by category\n\n'
+          '**Categories:**\n'
+          '• General Notice\n'
+          '• School Event\n'
+          '• Holiday Announcement\n'
+          '• Important Update',
+      category: 'Notice',
     ),
     _HelpTopic(
-      keywords: ['profile', 'photo', 'name', 'email', 'phone', 'my profile'],
-      urduAnswer:
-          'Profile section mein aap apna naam, email, phone number aur photo update kar sakte hain. Drawer se My Profile kholen, changes karein aur save kar dein.',
-      englishAnswer:
-          'In the Profile section, you can update your name, email, phone number, and photo. Open My Profile from the drawer, make your changes, and save them.',
+      keywords: [
+        'profile',
+        'photo',
+        'name',
+        'email',
+        'phone',
+        'my profile',
+        'edit profile',
+        'update profile',
+        'change photo',
+      ],
+      answer:
+          '👤 **Profile Management**\n\n'
+          '**How to Update Profile:**\n'
+          '1. Open drawer menu (☰)\n'
+          '2. Tap "My Profile"\n'
+          '3. Click "Edit Profile"\n'
+          '4. Update your information:\n'
+          '   • Name\n'
+          '   • Email\n'
+          '   • Phone number\n'
+          '   • Profile photo\n'
+          '5. Click "Save Changes"\n\n'
+          '**To Change Photo:**\n'
+          '1. Tap on profile picture\n'
+          '2. Choose "Camera" or "Gallery"\n'
+          '3. Select/capture photo\n'
+          '4. Crop if needed\n'
+          '5. Save\n\n'
+          '**Note:** Some fields like class, section, and role cannot be changed by users.',
+      category: 'Profile',
     ),
     _HelpTopic(
       keywords: [
@@ -82,11 +239,30 @@ class ChatbotService extends GetxService {
         'forgot password',
         'reset',
         'password bhool gaya',
+        'reset password',
+        'new password',
       ],
-      urduAnswer:
-          'Password change karne ke liye drawer mein Change Password option use karein. Agar login na ho raha ho to Forgot Password ya OTP flow use karke account recover karein.',
-      englishAnswer:
-          'To change your password, use the Change Password option from the drawer. If you cannot log in, use the Forgot Password or OTP flow to recover the account.',
+      answer:
+          '🔐 **Password Management**\n\n'
+          '**Change Password (Logged In):**\n'
+          '1. Open drawer menu (☰)\n'
+          '2. Tap "Change Password"\n'
+          '3. Enter current password\n'
+          '4. Enter new password\n'
+          '5. Confirm new password\n'
+          '6. Click "Update Password"\n\n'
+          '**Forgot Password (Not Logged In):**\n'
+          '1. Go to Login screen\n'
+          '2. Click "Forgot Password?"\n'
+          '3. Enter your email\n'
+          '4. Verify OTP code\n'
+          '5. Set new password\n'
+          '6. Login with new password\n\n'
+          '**Password Requirements:**\n'
+          '• Minimum 6 characters\n'
+          '• Mix of letters and numbers recommended\n'
+          '• Keep it secure and memorable',
+      category: 'Security',
     ),
     _HelpTopic(
       keywords: [
@@ -96,11 +272,30 @@ class ChatbotService extends GetxService {
         'settings',
         'mode',
         'theme change',
+        'appearance',
+        'dark theme',
       ],
-      urduAnswer:
-          'Dark aur Light mode change karne ke liye drawer se Settings kholen. Wahan se apni pasand ka theme select kar sakte hain.',
-      englishAnswer:
-          'To switch between Dark and Light mode, open Settings from the drawer and choose the theme you prefer.',
+      answer:
+          '🎨 **Settings & Preferences**\n\n'
+          '**Change Theme:**\n'
+          '1. Open drawer menu (☰)\n'
+          '2. Tap "Settings"\n'
+          '3. Find "Theme" section\n'
+          '4. Choose:\n'
+          '   • Light Mode\n'
+          '   • Dark Mode\n'
+          '   • System Default\n\n'
+          '**Notification Settings:**\n'
+          '1. Go to Settings\n'
+          '2. Toggle "Enable Notifications"\n'
+          '3. Choose notification types\n\n'
+          '**Other Settings:**\n'
+          '• Language preferences\n'
+          '• App version info\n'
+          '• About school\n'
+          '• Emergency contacts\n\n'
+          '**Note:** Settings are saved automatically.',
+      category: 'Settings',
     ),
     _HelpTopic(
       keywords: [
@@ -111,18 +306,71 @@ class ChatbotService extends GetxService {
         'log in',
         'otp',
         'account',
+        'create account',
+        'new account',
       ],
-      urduAnswer:
-          'Naya account banane ke liye Register screen use karein. Existing user Login screen se sign in kar sakta hai, aur OTP screen verification mein help karti hai.',
-      englishAnswer:
-          'Use the Register screen to create a new account. Existing users can sign in from the Login screen, and the OTP screen helps with verification.',
+      answer:
+          '🔑 **Login & Registration**\n\n'
+          '**For New Users (Register):**\n'
+          '1. Open app and select role\n'
+          '2. Click "Register"\n'
+          '3. Fill in details:\n'
+          '   • Name, Email, Phone\n'
+          '   • Class/Section (for students/teachers)\n'
+          '   • Admission No (for students)\n'
+          '4. Verify OTP code\n'
+          '5. Set password\n'
+          '6. Complete registration\n\n'
+          '**For Existing Users (Login):**\n'
+          '1. Select your role\n'
+          '2. Enter email/user ID\n'
+          '3. Enter password\n'
+          '4. Click "Login"\n\n'
+          '**OTP Verification:**\n'
+          '• Check email for 4-digit code\n'
+          '• Enter code within 10 minutes\n'
+          '• Request new code if expired\n\n'
+          '**Note:** Student accounts are created by Principal.',
+      category: 'Authentication',
     ),
     _HelpTopic(
-      keywords: ['role', 'student', 'teacher', 'principal', 'admin', 'kirdar'],
-      urduAnswer:
-          'Is app mein teen main roles hain: Student, Teacher aur Principal. Student apni information aur tasks dekhta hai, Teacher class management karta hai, aur Principal school-level controls aur updates manage karta hai.',
-      englishAnswer:
-          'This app mainly supports three roles: Student, Teacher, and Principal. Students view their own tasks and data, teachers manage class activities, and principals handle school-level controls and updates.',
+      keywords: [
+        'role',
+        'student',
+        'teacher',
+        'principal',
+        'admin',
+        'kirdar',
+        'user type',
+        'access',
+      ],
+      answer:
+          '👥 **User Roles & Permissions**\n\n'
+          '**Student Role:**\n'
+          '• View attendance history\n'
+          '• Submit homework\n'
+          '• Check results\n'
+          '• Attempt quizzes\n'
+          '• View exam schedule\n'
+          '• Read notices\n'
+          '• Update own profile\n\n'
+          '**Teacher Role:**\n'
+          '• Mark attendance for class\n'
+          '• Create homework assignments\n'
+          '• Enter student results\n'
+          '• Create quizzes\n'
+          '• Upload exam schedules\n'
+          '• Post class notices\n'
+          '• View student submissions\n\n'
+          '**Principal Role:**\n'
+          '• All teacher permissions\n'
+          '• Create student accounts\n'
+          '• Manage teacher accounts\n'
+          '• View all classes data\n'
+          '• Post school-wide notices\n'
+          '• Full administrative access\n\n'
+          '**Note:** Roles are assigned during registration.',
+      category: 'Roles',
     ),
   ];
 
@@ -169,7 +417,17 @@ class ChatbotService extends GetxService {
     messages.add(
       ChatMessage(
         text:
-            'Assalam o Alaikum! Main is app ka free assistant hun. Attendance, homework, result, quiz, exam schedule, profile, login ya settings ke baray mein pooch sakte hain.',
+            '👋 **Welcome to School App Assistant!**\n\n'
+            'I can help you with:\n'
+            '• Attendance management\n'
+            '• Homework & assignments\n'
+            '• Results & grades\n'
+            '• Quizzes & tests\n'
+            '• Exam schedules\n'
+            '• Notices & events\n'
+            '• Profile settings\n'
+            '• Login & registration\n\n'
+            'Ask me anything about these features!',
         isUser: false,
       ),
     );
@@ -177,57 +435,57 @@ class ChatbotService extends GetxService {
 
   String _generateReply(String text) {
     final normalized = text.toLowerCase().trim();
-    final isUrdu = _looksLikeUrdu(text);
 
     if (_isGreeting(normalized)) {
-      return isUrdu
-          ? 'Walaikum Salam! Main sirf is app ke features samjhane ke liye hun. Aap attendance, homework, result, quiz, profile ya login ke baray mein pooch sakte hain.'
-          : 'Hello! I am here to explain this app only. You can ask about attendance, homework, results, quiz, profile, or login.';
+      return '👋 **Hello!**\n\n'
+          'I\'m your School App Assistant. I can help you understand how to use different features of this app.\n\n'
+          '**Popular Topics:**\n'
+          '• How to mark attendance?\n'
+          '• How to submit homework?\n'
+          '• How to check results?\n'
+          '• How to create a quiz?\n'
+          '• How to view exam schedule?\n\n'
+          'What would you like to know?';
     }
 
     if (_asksAboutCapabilities(normalized)) {
-      return isUrdu
-          ? 'Main is app ke baray mein madad karta hun: attendance, homework, quiz, result, exam schedule, notices, profile, password aur settings. Aap simple sawal likhein, main step by step guide dunga.'
-          : 'I can help with this app only: attendance, homework, quiz, results, exam schedule, notices, profile, password, and settings. Ask a simple question and I will guide you step by step.';
+      return '🎯 **I Can Help You With:**\n\n'
+          '**Academic Features:**\n'
+          '• Attendance Management\n'
+          '• Homework & Assignments\n'
+          '• Results & Grades\n'
+          '• Quizzes & Tests\n'
+          '• Exam Schedules\n\n'
+          '**Communication:**\n'
+          '• Notices & Events\n'
+          '• Announcements\n\n'
+          '**Account Management:**\n'
+          '• Profile Settings\n'
+          '• Password Management\n'
+          '• Login & Registration\n\n'
+          '**App Settings:**\n'
+          '• Theme (Dark/Light Mode)\n'
+          '• Notifications\n'
+          '• Preferences\n\n'
+          'Just ask me about any feature!';
     }
 
     for (final topic in _topics) {
       if (topic.matches(normalized)) {
-        return isUrdu ? topic.urduAnswer : topic.englishAnswer;
+        return topic.answer;
       }
     }
 
-    return isUrdu
-        ? 'Main sirf is school app ke features ke baray mein jawab deta hun. Aap attendance, homework, result, quiz, exam schedule, notices, profile, password ya settings ke baray mein pooch sakte hain.'
-        : 'I only answer questions about this school app. You can ask about attendance, homework, results, quiz, exam schedule, notices, profile, password, or settings.';
-  }
-
-  bool _looksLikeUrdu(String text) {
-    if (RegExp(r'[\u0600-\u06FF]').hasMatch(text)) {
-      return true;
-    }
-
-    final normalized = text.toLowerCase();
-    const romanUrduHints = [
-      'kaise',
-      'kahan',
-      'kya',
-      'kyun',
-      'mein',
-      'main',
-      'madad',
-      'dekhen',
-      'dekho',
-      'hota',
-      'hoti',
-      'hun',
-      'hai',
-      'karna',
-      'karni',
-      'chahiye',
-    ];
-
-    return romanUrduHints.any(normalized.contains);
+    return '❓ **I didn\'t quite understand that.**\n\n'
+        'I can only answer questions about this School Management App.\n\n'
+        '**Try asking about:**\n'
+        '• "How to mark attendance?"\n'
+        '• "How to submit homework?"\n'
+        '• "How to check results?"\n'
+        '• "How to create a quiz?"\n'
+        '• "How to change password?"\n'
+        '• "How to change theme?"\n\n'
+        'Or type "help" to see all available topics.';
   }
 
   bool _isGreeting(String text) {
@@ -252,10 +510,10 @@ class ChatbotService extends GetxService {
       'help',
       'features',
       'how can you help',
-      'kya kar sakte',
-      'madad',
-      'kis bare mein',
-      'kon si cheezein',
+      'capabilities',
+      'what do you know',
+      'topics',
+      'menu',
     ];
 
     return prompts.any(text.contains);
@@ -273,13 +531,13 @@ class ChatMessage {
 
 class _HelpTopic {
   final List<String> keywords;
-  final String urduAnswer;
-  final String englishAnswer;
+  final String answer;
+  final String category;
 
   const _HelpTopic({
     required this.keywords,
-    required this.urduAnswer,
-    required this.englishAnswer,
+    required this.answer,
+    required this.category,
   });
 
   bool matches(String text) {

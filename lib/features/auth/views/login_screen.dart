@@ -318,21 +318,9 @@ class _LoginScreenState extends State<LoginScreen>
                               child:
                                   (_isSubmitting ||
                                       _authProvider.isLoading.value)
-                                  ? const Row(
+                                  ? const Center(
                                       key: ValueKey('loading'),
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        _ButtonLoadingDots(),
-                                        SizedBox(width: 10),
-                                        Text(
-                                          'Signing in',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                      ],
+                                      child: _ButtonLoadingDots(),
                                     )
                                   : const Row(
                                       key: ValueKey('idle'),

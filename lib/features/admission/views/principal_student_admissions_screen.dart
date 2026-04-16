@@ -413,54 +413,70 @@ class _PrincipalStudentAdmissionsScreenState
           final admissions = _provider.studentProfiles.toList(growable: false);
           final filtered = _filteredAdmissions(admissions);
 
-          return SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(
-              parent: BouncingScrollPhysics(),
-            ),
-            child: ResponsiveContent(
-              maxWidth: 1100,
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildTopTabs(
+          return Column(
+            children: [
+              // Fixed Tab Bar
+              Container(
+                color: palette.surfaceAlt,
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: ResponsiveContent(
+                  maxWidth: 1100,
+                  child: _buildTopTabs(
                     palette,
                     leftLabel: 'Admission Form',
                     rightLabel: 'Students List',
                   ),
-                  const SizedBox(height: 16),
-                  if (_activeTab == 0) ...[
-                    _buildGuideCard(palette),
-                    const SizedBox(height: 16),
-                    if (_lastIssuedCredentials != null) ...[
-                      _buildLatestCredentialsCard(palette),
-                      const SizedBox(height: 16),
-                    ],
-                    _buildFormCard(palette),
-                  ] else ...[
-                    _buildFilterCard(
-                      palette,
-                      totalAdmissions: admissions.length,
-                      showingAdmissions: filtered.length,
-                    ),
-                    const SizedBox(height: 16),
-                    if (_provider.isLoading.value)
-                      const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(32),
-                          child: CircularProgressIndicator(),
-                        ),
-                      )
-                    else if (filtered.isEmpty)
-                      _buildEmptyCard(palette)
-                    else
-                      ...filtered.map(
-                        (profile) => _buildAdmissionCard(palette, profile),
-                      ),
-                  ],
-                ],
+                ),
               ),
-            ),
+              // Fixed Search Bar (only in list view)
+              if (_activeTab == 1)
+                Container(
+                  color: palette.surfaceAlt,
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: ResponsiveContent(
+                    maxWidth: 1100,
+                    child: _buildCompactSearchBar(palette, admissions.length, filtered.length),
+                  ),
+                ),
+              // Scrollable Content
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: BouncingScrollPhysics(),
+                  ),
+                  child: ResponsiveContent(
+                    maxWidth: 1100,
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (_activeTab == 0) ...[
+                          _buildGuideCard(palette),
+                          const SizedBox(height: 12),
+                          if (_lastIssuedCredentials != null) ...[
+                            _buildLatestCredentialsCard(palette),
+                            const SizedBox(height: 12),
+                          ],
+                          _buildFormCard(palette),
+                        ] else ...[
+                          if (_provider.isLoading.value)
+                            const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(32),
+                                child: CircularProgressIndicator(),
+                              ),
+                            )
+                          else if (filtered.isEmpty)
+                            _buildEmptyCard(palette)
+                          else
+                            _buildStudentTable(palette, filtered),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           );
         }),
       ),
@@ -841,104 +857,111 @@ class _PrincipalStudentAdmissionsScreenState
     );
   }
 
-  Widget _buildFilterCard(
-    AppThemePalette palette, {
-    required int totalAdmissions,
-    required int showingAdmissions,
-  }) {
-    final linkedCount = _provider.studentProfiles
-        .where((item) => item.isLinked)
-        .length;
-
+  Widget _buildCompactSearchBar(
+    AppThemePalette palette,
+    int total,
+    int showing,
+  ) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: palette.surface,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: palette.border),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Text(
-            'Search Admissions',
-            style: TextStyle(
-              color: palette.text,
-              fontWeight: FontWeight.w700,
-              fontSize: 16,
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              onChanged: (value) => setState(() => _searchQuery = value),
+              decoration: const InputDecoration(
+                hintText: 'Search by name, admission, roll, email...',
+                hintStyle: TextStyle(fontSize: 12),
+                prefixIcon: Icon(Icons.search, size: 18),
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(vertical: 8),
+              ),
+              style: const TextStyle(fontSize: 13),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(width: 8),
           Text(
-            'Total: $totalAdmissions | Showing: $showingAdmissions | Linked: $linkedCount',
-            style: TextStyle(color: palette.subtext),
+            '$showing/$total',
+            style: TextStyle(
+              color: palette.subtext,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-          const SizedBox(height: 12),
-          Row(
+          const SizedBox(width: 8),
+          IconButton(
+            onPressed: () => _showFilterMenu(palette),
+            icon: Icon(Icons.filter_list, color: palette.primary, size: 20),
+            tooltip: 'Filters',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showFilterMenu(AppThemePalette palette) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Filters'),
+        content: SizedBox(
+          width: 300,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Expanded(
-                child: _buildDropdown(
-                  label: 'Class Filter',
-                  value: _filterClass,
-                  items: const [
-                    'All',
-                    '1',
-                    '2',
-                    '3',
-                    '4',
-                    '5',
-                    '6',
-                    '7',
-                    '8',
-                    '9',
-                    '10',
-                  ],
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() => _filterClass = value);
-                    }
-                  },
-                ),
+              _buildDropdown(
+                label: 'Class',
+                value: _filterClass,
+                items: const ['All', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
+                onChanged: (value) {
+                  if (value != null) setState(() => _filterClass = value);
+                },
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildDropdown(
-                  label: 'Section Filter',
-                  value: _filterSection,
-                  items: const ['All', 'A', 'B', 'C'],
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() => _filterSection = value);
-                    }
-                  },
-                ),
+              const SizedBox(height: 12),
+              _buildDropdown(
+                label: 'Section',
+                value: _filterSection,
+                items: const ['All', 'A', 'B', 'C'],
+                onChanged: (value) {
+                  if (value != null) setState(() => _filterSection = value);
+                },
+              ),
+              const SizedBox(height: 12),
+              _buildDropdown(
+                label: 'Gender',
+                value: _filterGender,
+                items: const ['All', 'Male', 'Female', 'Other'],
+                onChanged: (value) {
+                  if (value != null) setState(() => _filterGender = value);
+                },
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          _buildDropdown(
-            label: 'Gender Filter',
-            value: _filterGender,
-            items: const ['All', 'Male', 'Female', 'Other'],
-            onChanged: (value) {
-              if (value != null) {
-                setState(() => _filterGender = value);
-              }
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _filterClass = 'All';
+                _filterSection = 'All';
+                _filterGender = 'All';
+              });
+              Navigator.pop(context);
             },
+            child: const Text('Clear All'),
           ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _searchController,
-            onChanged: (value) => setState(() => _searchQuery = value),
-            decoration: InputDecoration(
-              hintText:
-                  'Search by name, email, user ID, admission no, or roll no',
-              prefixIcon: const Icon(Icons.search),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Apply'),
           ),
         ],
       ),
@@ -961,123 +984,307 @@ class _PrincipalStudentAdmissionsScreenState
     );
   }
 
-  Widget _buildAdmissionCard(
+  Widget _buildStudentTable(
     AppThemePalette palette,
-    StudentProfileModel profile,
+    List<StudentProfileModel> students,
   ) {
     return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: palette.surface,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: palette.border),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          // Table Header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            decoration: BoxDecoration(
+              color: palette.softCard,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
+            ),
+            child: Row(
               children: [
-                Text(
-                  profile.fullName,
-                  style: TextStyle(
-                    color: palette.text,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16,
+                const SizedBox(
+                  width: 25,
+                  child: Text(
+                    '#',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 10,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _infoChip(palette, 'Admission', profile.admissionNo),
-                    _infoChip(palette, 'Roll', profile.rollNumber),
-                    _infoChip(
-                      palette,
-                      'Class',
-                      '${profile.className}-${profile.section}',
+                const Expanded(
+                  flex: 4,
+                  child: Text(
+                    'Name',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 10,
                     ),
-                    _infoChip(
-                      palette,
-                      'Gender',
-                      profile.gender.isEmpty ? '-' : profile.gender,
-                    ),
-                    if (profile.generatedUserId.isNotEmpty)
-                      _infoChip(
-                        palette,
-                        'User ID',
-                        profile.generatedUserId,
-                        highlight: true,
-                      ),
-                    _infoChip(
-                      palette,
-                      profile.isLinked ? 'Account Ready' : 'Login Pending',
-                      profile.isLinked
-                          ? (profile.linkedUserEmail.isEmpty
-                                ? 'Account connected'
-                                : profile.linkedUserEmail)
-                          : 'Generate login from this record',
-                      highlight: profile.isLinked,
-                      warning: !profile.isLinked,
-                    ),
-                  ],
+                  ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Father: ${profile.fatherName}',
-                  style: TextStyle(color: palette.subtext),
+                const Expanded(
+                  flex: 3,
+                  child: Text(
+                    'Adm',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 10,
+                    ),
+                  ),
                 ),
-                if (profile.programName.isNotEmpty)
-                  Text(
-                    'Program: ${profile.programName}',
-                    style: TextStyle(color: palette.subtext),
+                const Expanded(
+                  flex: 2,
+                  child: Text(
+                    'Roll',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 10,
+                    ),
                   ),
-                if (profile.studentEmail.isNotEmpty)
-                  Text(
-                    'Email: ${profile.studentEmail}',
-                    style: TextStyle(color: palette.subtext),
+                ),
+                const Expanded(
+                  flex: 2,
+                  child: Text(
+                    'Class',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 10,
+                    ),
                   ),
-                if (profile.phone.isNotEmpty)
-                  Text(
-                    'Phone: ${profile.phone}',
-                    style: TextStyle(color: palette.subtext),
-                  ),
-                if (profile.credentialsIssuedAt.isNotEmpty)
-                  Text(
-                    'Credentials issued: ${profile.credentialsIssuedAt.split('T').first}',
-                    style: TextStyle(color: palette.subtext),
-                  ),
+                ),
+                const SizedBox(width: 45),
               ],
             ),
           ),
-          const SizedBox(width: 12),
-          Column(
-            children: [
-              if (!profile.isLinked)
-                IconButton(
-                  onPressed: _isSavingAdmission
-                      ? null
-                      : () => _generateCredentialsForProfile(profile),
-                  tooltip: 'Generate student login',
-                  icon: Icon(Icons.vpn_key_outlined, color: palette.primary),
+          // Table Rows
+          ...students.asMap().entries.map((entry) {
+            final index = entry.key;
+            final profile = entry.value;
+            return _buildStudentRow(palette, index + 1, profile);
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStudentRow(
+    AppThemePalette palette,
+    int serialNo,
+    StudentProfileModel profile,
+  ) {
+    return InkWell(
+      onTap: () => _showStudentDetails(profile),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(color: palette.border, width: 0.5),
+          ),
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 25,
+              child: Text(
+                '$serialNo',
+                style: TextStyle(
+                  color: palette.subtext,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
                 ),
-              IconButton(
-                onPressed: () => _editAdmission(profile),
-                tooltip: 'Edit admission record',
-                icon: Icon(Icons.edit_outlined, color: palette.primary),
               ),
-              if (profile.generatedUserId.isNotEmpty)
-                IconButton(
-                  onPressed: () =>
-                      _copyText('User ID', profile.generatedUserId),
-                  tooltip: 'Copy user ID',
-                  icon: Icon(Icons.copy_outlined, color: palette.primary),
+            ),
+            Expanded(
+              flex: 4,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      profile.fullName,
+                      style: TextStyle(
+                        color: palette.text,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (profile.isLinked)
+                    Container(
+                      margin: const EdgeInsets.only(left: 2),
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE8F5E9),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                      child: const Text(
+                        '✓',
+                        style: TextStyle(
+                          color: Color(0xFF2E7D32),
+                          fontSize: 8,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Expanded(
+              flex: 3,
+              child: Text(
+                profile.admissionNo,
+                style: TextStyle(
+                  color: palette.text,
+                  fontSize: 10,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Text(
+                profile.rollNumber,
+                style: TextStyle(
+                  color: palette.text,
+                  fontSize: 10,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Text(
+                '${profile.className}-${profile.section}',
+                style: TextStyle(
+                  color: palette.text,
+                  fontSize: 10,
+                ),
+              ),
+            ),
+            SizedBox(
+              width: 45,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (!profile.isLinked)
+                    IconButton(
+                      onPressed: _isSavingAdmission
+                          ? null
+                          : () => _generateCredentialsForProfile(profile),
+                      tooltip: 'Gen',
+                      icon: Icon(
+                        Icons.vpn_key_outlined,
+                        color: palette.primary,
+                        size: 13,
+                      ),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+                    ),
+                  IconButton(
+                    onPressed: () => _editAdmission(profile),
+                    tooltip: 'Edit',
+                    icon: Icon(
+                      Icons.edit_outlined,
+                      color: palette.primary,
+                      size: 13,
+                    ),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showStudentDetails(StudentProfileModel profile) {
+    final palette = context.appPalette;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(profile.fullName),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _detailRow('Admission No', profile.admissionNo),
+              _detailRow('Roll Number', profile.rollNumber),
+              _detailRow('Class', '${profile.className}-${profile.section}'),
+              _detailRow('Father Name', profile.fatherName),
+              _detailRow('Date of Birth', profile.dateOfBirth),
+              _detailRow('Gender', profile.gender),
+              _detailRow('Email', profile.studentEmail),
+              _detailRow('Phone', profile.phone),
+              if (profile.programName.isNotEmpty)
+                _detailRow('Program', profile.programName),
+              if (profile.generatedUserId.isNotEmpty)
+                _detailRow('User ID', profile.generatedUserId),
+              _detailRow('Status', profile.status),
+              _detailRow(
+                'Account',
+                profile.isLinked ? 'Linked ✓' : 'Not Linked',
+              ),
             ],
+          ),
+        ),
+        actions: [
+          if (!profile.isLinked)
+            TextButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                _generateCredentialsForProfile(profile);
+              },
+              icon: const Icon(Icons.vpn_key_outlined),
+              label: const Text('Generate Login'),
+            ),
+          TextButton.icon(
+            onPressed: () {
+              Navigator.pop(context);
+              _editAdmission(profile);
+            },
+            icon: const Icon(Icons.edit_outlined),
+            label: const Text('Edit'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _detailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 110,
+            child: Text(
+              '$label:',
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value.isEmpty ? '-' : value,
+              style: const TextStyle(fontSize: 13),
+            ),
           ),
         ],
       ),

@@ -24,6 +24,7 @@ class AttendanceProvider extends GetxController {
     required String section,
     required String email,
     String? photoPath,
+    String? notes,
   }) => _service.submitAttendance(
     studentName: studentName,
     rollNumber: rollNumber,
@@ -31,6 +32,7 @@ class AttendanceProvider extends GetxController {
     section: section,
     email: email,
     photoPath: photoPath,
+    notes: notes,
   );
 
   Future<void> updateAttendanceStatus(String id, AttendanceStatus status) =>
